@@ -4,165 +4,124 @@ on:
   push:
     branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
-env:
-  GO_VERSION: '1.23.4'
+permissions:
+  contents: read
 
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          
-      - name: Install golangci-lint
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.61.0
-          
-      - name: Run golangci-lint
-        run: golangci-lint run ./...
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24.0'
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        args: --timeout=5m
 
   test:
     name: Test
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        go: ['1.22', '1.23.4']
-    runs-on: ${{ matrix.os }}
+        go: ['1.24.0']
     steps:
-      - uses: actions/checkout@v4
-        
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go }}
-          
-      - name: Run tests
-        run: |
-          go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
-          
-      - name: Upload coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.go == env.GO_VERSION
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.out
-          fail_ci_if_error: false
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-  build-sharedlib:
-    name: Build Shared Libraries
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.out
+        flags: unittests
+        name: codecov-umbrella
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        include:
-          - os: ubuntu-latest
-            target: linux-amd64
-            output: signer-amd64.so
-          - os: macos-latest
-            target: darwin-arm64
-            output: signer-arm64.dylib
-    runs-on: ${{ matrix.os }}
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go: ['1.24.0']
     steps:
-      - uses: actions/checkout@v4
-        
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          
-      - name: Vendor dependencies
-        run: |
-          go mod download
-          go mod vendor
-          
-      - name: Build shared library
-        run: |
-          mkdir -p build
-          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -buildmode=c-shared -trimpath -ldflags="-s -w" -o build/${{ matrix.output }} ./sharedlib/sharedlib.go
-          else
-            CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -buildmode=c-shared -trimpath -ldflags="-s -w" -o build/${{ matrix.output }} ./sharedlib/sharedlib.go
-          fi
-          
-      - name: Verify shared library
-        run: |
-          ls -la build/
-          file build/${{ matrix.output }}
-          
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sharedlib-${{ matrix.target }}
-          path: build/${{ matrix.output }}
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-  e2e-test:
-    name: End-to-End Test
-    needs: build-sharedlib
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: Build binary
+      run: go build -v ./cmd/rizome
+
+    - name: Test binary
+      shell: bash
+      run: |
+        if [ "${{ runner.os }}" == "Windows" ]; then
+          ./rizome.exe --help
+          ./rizome.exe completion bash > NUL
+        else
+          ./rizome --help
+          ./rizome completion bash > /dev/null
+        fi
+
+  sync-test:
+    name: Sync Command Test
     runs-on: ubuntu-latest
+    needs: [build]
     steps:
-      - uses: actions/checkout@v4
-        
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          
-      - name: Download Linux shared library
-        uses: actions/download-artifact@v4
-        with:
-          name: sharedlib-linux-amd64
-          path: build/
-          
-      - name: Run E2E tests
-        run: |
-          chmod +x scripts/e2e-test.sh
-          ./scripts/e2e-test.sh
-          
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          
-      - name: Run gosec
-        run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
-          gosec -fmt=json -out=security-report.json ./... || true
-          
-      - name: Upload security report
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-report
-          path: security-report.json
-          
-  build-cross-platform:
-    name: Cross-Platform Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          
-      - name: Build for multiple platforms
-        run: |
-          make build-cross || echo "No main binary to build"
-          
-  docker-build:
-    name: Docker Build Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        
-      - name: Test Docker build
-        run: |
-          if [ -f Dockerfile ]; then
-            docker build -t tmpl:test .
-          else
-            echo "No Dockerfile found, skipping Docker build"
-          fi
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24.0'
+
+    - name: Build rizome
+      run: go build -o rizome ./cmd/rizome
+
+    - name: Test sync dry-run
+      run: ./rizome sync --dry-run
+
+    - name: Test actual sync
+      run: ./rizome sync
+
+    - name: Verify created files
+      run: |
+        ls -la *.md
+        [ -f CLAUDE.md ] && echo "✓ CLAUDE.md created"
+        [ -f QWEN.md ] && echo "✓ QWEN.md created"
+        [ -f CURSOR.md ] && echo "✓ CURSOR.md created"
+        [ -f GEMINI.md ] && echo "✓ GEMINI.md created"
+        [ -f WINDSURF.md ] && echo "✓ WINDSURF.md created"

@@ -1,0 +1,152 @@
+version: 2
+
+project_name: rizome
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: rizome
+    main: ./cmd/rizome
+    binary: rizome
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.buildTime={{.Date}}
+
+archives:
+  - id: rizome
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - RIZOME.md
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^build:'
+      - '^style:'
+      - '^refactor:'
+      - '^perf:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: 'Features'
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: 'Bug fixes'
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: 'Documentation'
+      regexp: "^.*docs[(\\w)]*:+.*$"
+      order: 2
+    - title: 'Other'
+      order: 999
+
+release:
+  github:
+    owner: rizome-dev
+    name: rizome
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## Rizome {{ .Tag }}
+    
+    Agentic development environment workflow management CLI.
+    Synchronizes configuration across AI providers and manages development workflows.
+    
+  footer: |
+    ## Installation
+    
+    ### Homebrew (macOS/Linux)
+    ```bash
+    brew tap rizome-dev/brews
+    brew install rizome
+    ```
+    
+    ### Manual
+    Download the appropriate binary for your platform from the assets below.
+    
+    ## Quick Start
+    ```bash
+    # Create a RIZOME.md file in your project
+    # Then sync provider configurations
+    rizome sync
+    
+    # View help
+    rizome --help
+    ```
+    
+    **Full Documentation**: https://github.com/rizome-dev/rizome
+
+brews:
+  - name: rizome
+    homepage: https://github.com/rizome-dev/rizome
+    description: Agentic development environment workflow management CLI
+    license: GPL-2.0
+    repository:
+      owner: rizome-dev
+      name: brews
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    directory: Formula
+    # Skip homebrew update for prereleases
+    skip_upload: auto
+    test: |
+      system "#{bin}/rizome", "--help"
+      # Test sync command help (should work without RIZOME.md)
+      system "#{bin}/rizome", "sync", "--help"
+    install: |
+      bin.install "rizome"
+      
+      # Generate and install shell completions
+      generate_completions_from_executable(bin/"rizome", "completion")
+    caveats: |
+      🚀 Rizome CLI is ready to use!
+      
+      To get started:
+        1. Create a RIZOME.md file in your project directory
+        2. Run 'rizome sync' to synchronize provider configurations
+      
+      For more information: https://github.com/rizome-dev/rizome

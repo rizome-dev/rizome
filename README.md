@@ -1,86 +1,221 @@
-# tmpl
+# Rizome CLI - Agentic Development Environment Workspace Management
 
-[![GoDoc](https://pkg.go.dev/badge/github.com/rizome-dev/tmpl)](https://pkg.go.dev/github.com/rizome-dev/tmpl)
-[![Go Report Card](https://goreportcard.com/badge/github.com/rizome-dev/tmpl)](https://goreportcard.com/report/github.com/rizome-dev/tmpl)
-[![CI](https://github.com/rizome-dev/tmpl/actions/workflows/ci.yml/badge.svg)](https://github.com/rizome-dev/tmpl/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GoDoc](https://pkg.go.dev/badge/github.com/rizome-dev/rizome)](https://pkg.go.dev/github.com/rizome-dev/rizome)
+[![Go Report Card](https://goreportcard.com/badge/github.com/rizome-dev/rizome)](https://goreportcard.com/report/github.com/rizome-dev/rizome)
+[![CI](https://github.com/rizome-dev/rizome/actions/workflows/ci.yml/badge.svg)](https://github.com/rizome-dev/rizome/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-GPL--2.0-blue.svg)](LICENSE)
 
-A production-ready Go project template with CI/CD, testing, and build tooling.
+**built by:** [rizome labs](https://rizome.dev) | **contact:** [hi@rizome.dev](mailto:hi@rizome.dev)
 
-built by [rizome labs](https://rizome.dev) | contact: [hi@rizome.dev](mailto:hi@rizome.dev)
+## Installation
 
-## Quick Start
-
-```bash
-# Use this template on GitHub
-# 1. Click "Use this template" button
-# 2. Create your new repository
-# 3. Clone your new repo
-
-# Bootstrap your project
-cd your-new-repo
-just bootstrap github.com/yourusername/yourproject cli
-
-# Set up development tools
-make setup
-
-# Build and test
-make build
-make test
-```
-
-## Bootstrap Options
+### Homebrew
 
 ```bash
-just bootstrap                                    # Uses defaults (CLI project)
-just bootstrap github.com/user/myproject          # Custom module name
-just bootstrap github.com/user/myproject library  # Library project
-just bootstrap github.com/user/myproject api      # API server project
+brew tap rizome-dev/brews && brew install rizome
 ```
 
-Project types:
-- `cli` - Command-line application
-- `library` - Go library package
-- `api` - HTTP API server
-- `sharedlib` - Shared C library (.so/.dylib)
-
-## Development
+### Source
 
 ```bash
-# Install tools
-make setup
-
-# Build
-make build
-
-# Test
-make test
-
-# Lint
-make lint
-
-# All checks
-make ci
+git clone https://github.com/rizome-dev/rizome && cd rizome && sudo make install
 ```
 
-## Features
+### Binary Download
 
-- **Go 1.23.4** with modern project structure
-- **GitHub Actions** CI/CD pipeline
-- **golangci-lint** with comprehensive rules
-- **Multiple project types** supported
-- **Cross-platform builds** (Linux, macOS, Windows)
-- **Shared C library** support
-- **Docker** build support
+Download the latest binary for your platform from the [releases page](https://github.com/rizome-dev/rizome/releases).
 
-## Contributing
+## Commands
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### `rizome sync`
 
-## License
+#### 1. Create a RIZOME.md file
 
-MIT License - see the [LICENSE](LICENSE) file for details.
+Create a `RIZOME.md` file in your project directory:
+
+```markdown
+# RIZOME.md
+
+This is the master configuration file for your project.
+
+## Common Instructions
+
+These are common instructions that apply to all AI providers:
+
+- This is a TypeScript project using React and Next.js
+- Follow the existing code patterns and conventions
+- Use TypeScript best practices and proper error handling
+- Maintain clean, readable, and well-documented code
+
+## Provider Overrides
+
+### CLAUDE
+Claude-specific instructions:
+- Focus on clean architecture and separation of concerns
+- Use proper dependency injection patterns
+- Ensure comprehensive error handling
+
+### QWEN
+Qwen-specific instructions:
+- Pay attention to performance optimizations
+- Use efficient algorithms and data structures
+- Consider memory usage in implementations
+
+### CURSOR
+Cursor-specific instructions:
+- Emphasize code readability and maintainability
+- Provide clear inline documentation
+- Use descriptive variable and function names
+
+### GEMINI
+Gemini-specific instructions:
+- Focus on modularity and reusability
+- Implement proper testing strategies
+- Consider edge cases in implementations
+
+### WINDSURF
+Windsurf-specific instructions:
+- Prioritize user experience and interface design
+- Ensure responsive and accessible components
+- Follow modern UI/UX patterns
+```
+
+Then:
+
+```bash
+# Preview what will be changed
+rizome sync --dry-run
+
+# Apply the synchronization
+rizome sync
+
+# Force overwrite existing files
+rizome sync --force
+```
+
+This will create/update individual provider configuration files:
+- `CLAUDE.md`
+- `QWEN.md`
+- `CURSOR.md`
+- `GEMINI.md`
+- `WINDSURF.md`
+
+Each file will contain both the common instructions and provider-specific overrides.
+
+The generated files can be used directly with your AI development tools:
+
+- **Claude Code**: Automatically reads `CLAUDE.md`
+- **Cursor**: Uses `CURSOR.md` for context
+- **Qwen**: References `QWEN.md` 
+- **Gemini CLI**: Loads `GEMINI.md`
+- **Windsurf**: Uses `WINDSURF.md`
+
+### RIZOME.md Format
+
+The `RIZOME.md` file uses a structured format:
+
+#### Required Sections
+
+- **Common Instructions**: Instructions that apply to all AI providers
+- **Provider Overrides**: Provider-specific instructions organized by provider name
+
+#### Supported Providers
+
+- `CLAUDE` - Claude Code and Claude API
+- `QWEN` - Qwen Code and Qwen models
+- `CURSOR` - Cursor AI IDE
+- `GEMINI` - Gemini CLI and Gemini models
+- `WINDSURF` - Windsurf AI development environment
+
+#### Example Structure
+
+```markdown
+# RIZOME.md
+
+Project overview and context.
+
+## Common Instructions
+
+Instructions that apply to all providers:
+- Project type and technology stack
+- Coding standards and conventions
+- General best practices
+
+## Provider Overrides
+
+### CLAUDE
+Claude-specific instructions
+
+### QWEN
+Qwen-specific instructions
+
+### CURSOR
+Cursor-specific instructions
+
+### GEMINI
+Gemini-specific instructions
+
+### WINDSURF
+Windsurf-specific instructions
+```
+
+### Available Make Targets
+
+```bash
+make help              # Show all available targets
+make build             # Build the binary
+make test              # Run unit tests
+make test-coverage     # Run tests with coverage report
+make test-sync         # Test sync command functionality
+make lint              # Run linters
+make fmt               # Format code
+make install           # Install to /usr/local/bin
+make uninstall         # Remove installed binary
+make clean             # Remove build artifacts
+```
+
+## Use Cases
+
+### Multi-Provider Development
+
+Keep all your AI development environments synchronized with a single source of truth:
+
+```bash
+# Update your RIZOME.md with new project requirements
+# Then sync across all providers
+rizome sync
+```
+
+### Team Collaboration
+
+Share consistent AI provider configurations across your team:
+
+```bash
+# Team lead updates RIZOME.md with coding standards
+git add RIZOME.md
+git commit -m "Update coding standards"
+git push
+
+# Team members sync their environments
+git pull
+rizome sync
+```
+
+### Project Templates
+
+Create reusable project templates with pre-configured AI provider settings:
+
+```bash
+# In your project template repository
+echo "Standard RIZOME.md configuration" > RIZOME.md
+rizome sync
+
+# Users of your template get consistent AI behavior
+git clone your-template
+cd your-template
+rizome sync
+```
+
+---
+
+Built with ❤️ by [Rizome Labs](https://rizome.dev)
