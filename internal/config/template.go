@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -235,4 +237,53 @@ func (tm *TemplateManager) TemplateExists(key string) (bool, error) {
 
 	_, exists := config.Templates[key]
 	return exists, nil
+}
+
+// InjectTimestamp adds or updates the current date timestamp for AI model grounding
+func InjectTimestamp(content string) string {
+	now := time.Now()
+	
+	// Format: <!-- Current Date: 2025-08-23 14:35:42 UTC -->
+	newTimestamp := fmt.Sprintf("<!-- Current Date: %s -->", now.UTC().Format("2006-01-02 15:04:05 UTC"))
+	
+	lines := strings.Split(content, "\n")
+	
+	// Look for existing timestamp patterns to replace
+	for i, line := range lines {
+		trimmedLine := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmedLine, "<!-- Current Date:") ||
+		   strings.HasPrefix(trimmedLine, "<!-- Last Updated:") || 
+		   strings.HasPrefix(trimmedLine, "<!-- Generated:") {
+			// Replace the existing timestamp
+			lines[i] = newTimestamp
+			return strings.Join(lines, "\n")
+		}
+	}
+	
+	// No existing timestamp found, add at the beginning
+	if strings.TrimSpace(content) == "" {
+		return newTimestamp + "\n\n"
+	}
+	
+	// Check if content starts with other metadata comments
+	if len(lines) > 0 && strings.HasPrefix(strings.TrimSpace(lines[0]), "<!--") {
+		// Find the end of the first comment block and insert after it
+		for i, line := range lines {
+			if strings.Contains(line, "-->") && 
+			   !strings.HasPrefix(strings.TrimSpace(line), "<!-- Current Date:") &&
+			   !strings.HasPrefix(strings.TrimSpace(line), "<!-- Last Updated:") &&
+			   !strings.HasPrefix(strings.TrimSpace(line), "<!-- Generated:") {
+				// Insert timestamp after the existing comment
+				result := make([]string, 0, len(lines)+2)
+				result = append(result, lines[:i+1]...)
+				result = append(result, newTimestamp)
+				result = append(result, "")
+				result = append(result, lines[i+1:]...)
+				return strings.Join(result, "\n")
+			}
+		}
+	}
+	
+	// Default: prepend timestamp at the very beginning
+	return newTimestamp + "\n\n" + content
 }

@@ -136,8 +136,9 @@ func runInitInteractive(force bool, templateKey string) error {
 	fmt.Printf("%s Initializing RIZOME.md in %s\n", infoStyle.Render("ℹ"), cwd)
 	fmt.Printf("  Using template: %s\n", selectedTemplate.Name)
 
-	// Write the template file
-	if err := os.WriteFile(rizomePath, []byte(selectedTemplate.Content), 0644); err != nil {
+	// Inject timestamp for model grounding and write the template file
+	contentWithTimestamp := config.InjectTimestamp(selectedTemplate.Content)
+	if err := os.WriteFile(rizomePath, []byte(contentWithTimestamp), 0644); err != nil {
 		return fmt.Errorf("%s Failed to create RIZOME.md: %w", errorStyle.Render("✗"), err)
 	}
 
@@ -415,9 +416,12 @@ func createStructuredTemplateInit(name, description string) (*config.Template, e
 	// Remove trailing newlines
 	content = strings.TrimSuffix(content, "\n\n")
 
+	// Inject timestamp for model grounding
+	contentWithTimestamp := config.InjectTimestamp(content)
+
 	return &config.Template{
 		Name:        name,
 		Description: description,
-		Content:     content,
+		Content:     contentWithTimestamp,
 	}, nil
 }

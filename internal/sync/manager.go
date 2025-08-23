@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	
+	"github.com/rizome-dev/rizome/internal/config"
 )
 
 // Manager handles synchronization of RIZOME.md with provider files
@@ -145,6 +147,14 @@ func (m *Manager) GetConfig() *Config {
 func (m *Manager) Sync(dryRun, force bool) ([]SyncResult, error) {
 	var results []SyncResult
 
+	// Update RIZOME.md timestamp first (unless dry run)
+	if !dryRun {
+		if err := m.updateRizomeTimestamp(); err != nil {
+			// Don't fail the sync if timestamp update fails, just continue
+			// This ensures sync works even if RIZOME.md is read-only or has issues
+		}
+	}
+
 	for _, provider := range m.config.Providers {
 		result := m.syncProvider(provider, dryRun, force)
 		results = append(results, result)
@@ -156,6 +166,14 @@ func (m *Manager) Sync(dryRun, force bool) ([]SyncResult, error) {
 // SyncProviders performs the synchronization operation for specific providers
 func (m *Manager) SyncProviders(providers []string, dryRun, force bool) ([]SyncResult, error) {
 	var results []SyncResult
+
+	// Update RIZOME.md timestamp first (unless dry run)
+	if !dryRun {
+		if err := m.updateRizomeTimestamp(); err != nil {
+			// Don't fail the sync if timestamp update fails, just continue
+			// This ensures sync works even if RIZOME.md is read-only or has issues
+		}
+	}
 
 	for _, provider := range providers {
 		result := m.syncProvider(provider, dryRun, force)
@@ -226,5 +244,28 @@ func (m *Manager) generateProviderContent(provider string) string {
 		content.WriteString("\n")
 	}
 
-	return content.String()
+	// Inject timestamp for model grounding
+	return config.InjectTimestamp(content.String())
+}
+
+// updateRizomeTimestamp updates the Last Updated timestamp in RIZOME.md
+func (m *Manager) updateRizomeTimestamp() error {
+	rizomePath := filepath.Join(m.baseDir, "RIZOME.md")
+	
+	// Read current content
+	content, err := os.ReadFile(rizomePath)
+	if err != nil {
+		return fmt.Errorf("failed to read RIZOME.md: %w", err)
+	}
+	
+	// Inject/update timestamp
+	updatedContent := config.InjectTimestamp(string(content))
+	
+	// Write back to file
+	err = os.WriteFile(rizomePath, []byte(updatedContent), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to update RIZOME.md timestamp: %w", err)
+	}
+	
+	return nil
 }

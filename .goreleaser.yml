@@ -37,19 +37,17 @@ archives:
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
-    format_overrides:
-      - goos: windows
-        format: zip
+    format: "{{ if eq .Os \"windows\" }}zip{{ else }}tar.gz{{ end }}"
     files:
       - README.md
-      - LICENSE
+      - LICENSE  
       - RIZOME.md
 
 checksum:
   name_template: 'checksums.txt'
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 
 changelog:
   sort: asc
