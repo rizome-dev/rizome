@@ -47,26 +47,16 @@ This will create/update individual provider configuration files:
 - `GEMINI.md`
 - `WINDSURF.md`
 
-Each file will contain both the common instructions and provider-specific overrides.
-
-The generated files can be used directly with your AI development tools:
-
-- **Claude Code**: Automatically reads `CLAUDE.md`
-- **Cursor**: Uses `CURSOR.md` for context
-- **Qwen**: References `QWEN.md` 
-- **Gemini CLI**: Loads `GEMINI.md`
-- **Windsurf**: Uses `WINDSURF.md`
-
-### RIZOME.md Format
+#### RIZOME.md Format
 
 The `RIZOME.md` file uses a structured format:
 
-#### Required Sections
+##### Required Sections
 
 - **Common Instructions**: Instructions that apply to all AI providers
 - **Provider Overrides**: Provider-specific instructions organized by provider name
 
-#### Supported Providers
+##### Supported Providers
 
 - `CLAUDE` - Claude Code and Claude API
 - `QWEN` - Qwen Code and Qwen models
@@ -74,7 +64,7 @@ The `RIZOME.md` file uses a structured format:
 - `GEMINI` - Gemini CLI and Gemini models
 - `WINDSURF` - Windsurf AI development environment
 
-#### Example Structure
+##### Example Structure
 
 ```markdown
 # RIZOME.md
