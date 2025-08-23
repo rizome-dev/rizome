@@ -29,59 +29,6 @@ Download the latest binary for your platform from the [releases page](https://gi
 
 ### `rizome sync`
 
-#### 1. Create a RIZOME.md file
-
-Create a `RIZOME.md` file in your project directory:
-
-```markdown
-# RIZOME.md
-
-This is the master configuration file for your project.
-
-## Common Instructions
-
-These are common instructions that apply to all AI providers:
-
-- This is a TypeScript project using React and Next.js
-- Follow the existing code patterns and conventions
-- Use TypeScript best practices and proper error handling
-- Maintain clean, readable, and well-documented code
-
-## Provider Overrides
-
-### CLAUDE
-Claude-specific instructions:
-- Focus on clean architecture and separation of concerns
-- Use proper dependency injection patterns
-- Ensure comprehensive error handling
-
-### QWEN
-Qwen-specific instructions:
-- Pay attention to performance optimizations
-- Use efficient algorithms and data structures
-- Consider memory usage in implementations
-
-### CURSOR
-Cursor-specific instructions:
-- Emphasize code readability and maintainability
-- Provide clear inline documentation
-- Use descriptive variable and function names
-
-### GEMINI
-Gemini-specific instructions:
-- Focus on modularity and reusability
-- Implement proper testing strategies
-- Consider edge cases in implementations
-
-### WINDSURF
-Windsurf-specific instructions:
-- Prioritize user experience and interface design
-- Ensure responsive and accessible components
-- Follow modern UI/UX patterns
-```
-
-Then:
-
 ```bash
 # Preview what will be changed
 rizome sync --dry-run
@@ -159,21 +106,6 @@ Gemini-specific instructions
 Windsurf-specific instructions
 ```
 
-### Available Make Targets
-
-```bash
-make help              # Show all available targets
-make build             # Build the binary
-make test              # Run unit tests
-make test-coverage     # Run tests with coverage report
-make test-sync         # Test sync command functionality
-make lint              # Run linters
-make fmt               # Format code
-make install           # Install to /usr/local/bin
-make uninstall         # Remove installed binary
-make clean             # Remove build artifacts
-```
-
 ## Use Cases
 
 ### Multi-Provider Development
@@ -214,6 +146,21 @@ rizome sync
 git clone your-template
 cd your-template
 rizome sync
+```
+
+---
+
+```bash
+make help              # Show all available targets
+make build             # Build the binary
+make test              # Run unit tests
+make test-coverage     # Run tests with coverage report
+make test-sync         # Test sync command functionality
+make lint              # Run linters
+make fmt               # Format code
+make install           # Install to /usr/local/bin
+make uninstall         # Remove installed binary
+make clean             # Remove build artifacts
 ```
 
 ---
