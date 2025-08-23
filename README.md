@@ -12,7 +12,7 @@
 ### Homebrew
 
 ```bash
-brew tap rizome-dev/brews && brew install rizome
+brew install rizome-dev/brews/rizome
 ```
 
 ### Source
