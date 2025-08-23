@@ -145,11 +145,42 @@ brews:
       # Generate and install shell completions
       generate_completions_from_executable(bin/"rizome", "completion")
     caveats: |
-      🚀 Rizome CLI is ready to use!
+      ✨ Rizome CLI installation complete!
       
-      To get started:
-        1. Run 'rizome init' to create a RIZOME.md template
-        2. Edit RIZOME.md with your project details
-        3. Run 'rizome sync' to synchronize provider configurations
+      Quick Start:
+        1. Run 'rizome init' to interactively create a RIZOME.md from templates
+        2. Edit RIZOME.md with your project details and provider overrides
+        3. Run 'rizome sync' to interactively synchronize provider configurations
+      
+      Template Management:
+        rizome tmpl        List available templates
+        rizome tmpl add    Create a new template interactively
+        rizome tmpl edit   Edit an existing template
+        rizome tmpl show   Show template content
+        rizome tmpl delete Delete a template
+      
+      Example RIZOME.md format:
+        # RIZOME.md
+      
+        Project overview and context.
+      
+        ## Common Instructions
+        Instructions that apply to all AI providers:
+        - Project type and technology stack
+        - Coding standards and conventions
+      
+        ## Provider Overrides
+        ### CLAUDE
+        Claude-specific instructions
+      
+        ### QWEN
+        Qwen-specific instructions
+      
+      Commands:
+        rizome --help        Show help information
+        rizome init          Interactive RIZOME.md creation from templates
+        rizome tmpl          Manage RIZOME.md templates
+        rizome sync          Interactive provider configuration sync
+        rizome sync --dry-run    Preview changes without applying
       
       For more information: https://github.com/rizome-dev/rizome
