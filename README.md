@@ -27,22 +27,6 @@ Download the latest binary for your platform from the [releases page](https://gi
 
 ## Commands
 
-### `rizome setup`
-
-```bash
-# Manage provider registry and configure default settings
-rizome setup
-```
-
-The `setup` command provides an interactive interface for managing your AI provider registry:
-
-- **Manage Provider Settings**: Enable or disable providers and view current settings
-- **Add Custom Providers**: Add new AI providers to your personal registry
-- **Remove Providers**: Remove providers from your registry
-- **View Provider Status**: See which providers are enabled and their configurations
-
-All provider settings are stored in `~/.rizome/config.yaml` and affect the default selections in other commands like `sync`.
-
 ### `rizome init`
 
 ```bash
@@ -56,7 +40,7 @@ rizome init --force
 rizome init --template my-template-key
 ```
 
-The `init` command now provides an interactive template selection interface. You can choose from saved templates or create a new one on the fly.
+The `init` command provides an interactive experience for both provider setup and template selection. It first optionally allows you to configure your AI provider registry (enable/disable providers, add custom providers, remove providers, view status) and then provides template selection from saved templates or create a new one on the fly.
 
 By default, all RIZOME.md files and the corresponding sync'd PROVIDER.md files have a Current Date comment pinned to the top; all `rizome` commands update this tag, making it simple to inject context about the current date for research purposes.
 
@@ -105,7 +89,7 @@ rizome sync --providers claude,qwen,cursor
 rizome sync --non-interactive
 ```
 
-The `sync` command provides an interactive checkbox interface for selecting which providers to sync. Providers enabled in your registry (see `rizome setup`) are pre-selected by default. You can override these selections during interactive sync.
+The `sync` command provides an interactive checkbox interface for selecting which providers to sync. Providers enabled in your registry (see `rizome init` provider setup phase) are pre-selected by default. You can override these selections during interactive sync.
 
 This will create/update individual provider configuration files for enabled providers. Default providers include:
 - `CLAUDE.md` - Claude Code and Claude API
@@ -114,7 +98,7 @@ This will create/update individual provider configuration files for enabled prov
 - `GEMINI.md` - Gemini CLI and Gemini models
 - `WINDSURF.md` - Windsurf AI development environment
 
-You can add custom providers or modify these defaults using `rizome setup`.
+You can add custom providers or modify these defaults using `rizome init` (provider setup phase).
 
 #### RIZOME.md Format
 
@@ -127,7 +111,7 @@ The `RIZOME.md` file uses a structured format:
 
 ##### Default Providers
 
-The following providers are included by default (manageable via `rizome setup`):
+The following providers are included by default (manageable via `rizome init`):
 
 - `CLAUDE` - Claude Code and Claude API
 - `QWEN` - Qwen Code and Qwen models
@@ -135,7 +119,7 @@ The following providers are included by default (manageable via `rizome setup`):
 - `GEMINI` - Gemini CLI and Gemini models
 - `WINDSURF` - Windsurf AI development environment
 
-**Note**: You can add custom providers, enable/disable default providers, and manage your provider registry using the `rizome setup` command.
+**Note**: You can add custom providers, enable/disable default providers, and manage your provider registry using the `rizome init` command (provider setup phase).
 
 ##### Example Structure
 
@@ -176,20 +160,14 @@ Windsurf-specific instructions
 Configure your personal AI provider preferences and manage custom providers:
 
 ```bash
-# Set up your provider preferences
-rizome setup
-
-# View current provider status
-rizome setup  # Select "Show Provider Status"
-
-# Add a custom AI provider
-rizome setup  # Select "Add Custom Provider"
-
-# Disable providers you don't use
-rizome setup  # Select "Manage Provider Settings"
+# Set up your provider preferences (during init provider setup phase)
+rizome init
+# When prompted, choose "Yes" to configure provider registry
+# Then select from: Manage Provider Settings, Add Custom Provider, 
+# Remove Provider, Show Provider Status, or Finish Provider Setup
 ```
 
-The setup command lets you:
+The provider setup phase in `rizome init` lets you:
 - Enable or disable providers (affects default selections in `sync`)
 - Add custom AI providers with descriptions and categories  
 - Remove providers you no longer need

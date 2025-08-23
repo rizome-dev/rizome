@@ -44,7 +44,7 @@ CURSOR.md, GEMINI.md, WINDSURF.md).
 
 Interactive Mode (default):
   Select which providers to sync using an interactive checkbox interface.
-  Providers enabled in the registry (see 'rizome setup') are pre-selected by default.
+  Providers enabled in the registry are pre-selected by default.
 
 Non-Interactive Mode:
   Use --non-interactive flag to sync enabled providers or specify providers with --providers.
@@ -67,7 +67,7 @@ The sync command will create or update individual provider files with:
 2. Provider-specific overrides (if any)
 
 Provider Registry:
-  Use 'rizome setup' to manage which providers are enabled by default.`,
+  Use 'rizome init' to configure which providers are enabled by default.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSyncInteractive(dryRun, force, nonInteractive, providers)
 		},

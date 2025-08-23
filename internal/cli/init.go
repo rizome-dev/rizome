@@ -107,6 +107,21 @@ func runInitInteractive(force bool, templateKey string) error {
 		}
 	}
 
+	// Provider registry setup before template selection (only in interactive mode)
+	if templateKey == "" {
+		setupProviders, err := tui.Confirm("Would you like to configure your AI provider registry before creating RIZOME.md?")
+		if err != nil {
+			return err
+		}
+		
+		if setupProviders {
+			if err := runProviderSetupFlow(); err != nil {
+				fmt.Printf("%s Provider setup failed: %v\n", infoStyle.Render("ℹ"), err)
+				fmt.Println("Continuing with template selection...")
+			}
+		}
+	}
+
 	var selectedTemplate *config.Template
 
 	// If template key is specified, use it directly (non-interactive mode)
@@ -426,4 +441,367 @@ func createStructuredTemplateInit(name, description string) (*config.Template, e
 		Description: description,
 		Content:     contentWithTimestamp,
 	}, nil
+}
+
+// runProviderSetupFlow provides the provider registry setup functionality integrated into init
+func runProviderSetupFlow() error {
+	tm, err := config.NewTemplateManager()
+	if err != nil {
+		return fmt.Errorf("failed to initialize template manager: %w", err)
+	}
+
+	for {
+		action, err := selectSetupActionForInit()
+		if err != nil {
+			return err
+		}
+
+		switch action {
+		case "manage":
+			if err := manageProvidersForInit(tm); err != nil {
+				return err
+			}
+		case "add":
+			if err := addCustomProviderForInit(tm); err != nil {
+				return err
+			}
+		case "remove":
+			if err := removeProviderForInit(tm); err != nil {
+				return err
+			}
+		case "status":
+			if err := showProviderStatusForInit(tm); err != nil {
+				return err
+			}
+		case "done":
+			fmt.Printf("%s Provider setup complete!\n", successStyle.Render("✅"))
+			return nil
+		}
+
+		// Ask if user wants to continue
+		if action != "status" {
+			shouldContinue, err := tui.Confirm("Continue configuring providers?")
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				fmt.Printf("%s Provider setup complete!\n", successStyle.Render("✅"))
+				return nil
+			}
+		}
+	}
+}
+
+// setupActionItemForInit represents an action option in the setup menu for init
+type setupActionItemForInit struct {
+	key         string
+	title       string
+	description string
+}
+
+func (s setupActionItemForInit) FilterValue() string { return s.title }
+func (s setupActionItemForInit) Title() string       { return s.title }
+func (s setupActionItemForInit) Description() string { return s.description }
+
+// selectSetupActionForInit prompts user to select what they want to do in the provider setup
+func selectSetupActionForInit() (string, error) {
+	items := []list.Item{
+		setupActionItemForInit{key: "manage", title: "Manage Provider Settings", description: "Enable/disable providers and view current settings"},
+		setupActionItemForInit{key: "add", title: "Add Custom Provider", description: "Add a new provider to the registry"},
+		setupActionItemForInit{key: "remove", title: "Remove Provider", description: "Remove a provider from the registry"},
+		setupActionItemForInit{key: "status", title: "Show Provider Status", description: "View current provider status and settings"},
+		setupActionItemForInit{key: "done", title: "Finish Provider Setup", description: "Continue with RIZOME.md template selection"},
+	}
+
+	selected, err := tui.ListSelection("Configure your AI provider registry:", items)
+	if err != nil {
+		return "", err
+	}
+
+	if actionItem, ok := selected.(setupActionItemForInit); ok {
+		return actionItem.key, nil
+	}
+
+	return "", fmt.Errorf("unexpected selection type")
+}
+
+// manageProvidersForInit provides interactive provider enable/disable functionality for init
+func manageProvidersForInit(tm *config.TemplateManager) error {
+	registry, err := tm.GetProviderRegistry()
+	if err != nil {
+		return fmt.Errorf("failed to load provider registry: %w", err)
+	}
+
+	// Create checkbox options from providers
+	var options []tui.CheckboxOption
+	for _, provider := range registry.Providers {
+		description := provider.Description
+		if provider.Category != "" {
+			description = fmt.Sprintf("[%s] %s", provider.Category, provider.Description)
+		}
+
+		options = append(options, tui.CheckboxOption{
+			Label:       provider.Name,
+			Description: description,
+			Value:       provider.Name,
+			Checked:     provider.Enabled,
+		})
+	}
+
+	if len(options) == 0 {
+		fmt.Println("No providers found in registry.")
+		return nil
+	}
+
+	selected, err := tui.CheckboxSelection("Select providers to enable (deselected will be disabled by default):", options)
+	if err != nil {
+		return err
+	}
+
+	// Update provider enabled status
+	for _, provider := range registry.Providers {
+		enabled := false
+		for _, selectedKey := range selected {
+			if provider.Name == selectedKey {
+				enabled = true
+				break
+			}
+		}
+
+		if err := tm.SetProviderEnabled(provider.Name, enabled); err != nil {
+			return fmt.Errorf("failed to update provider %s: %w", provider.Name, err)
+		}
+	}
+
+	fmt.Printf("Updated provider settings. %d providers enabled.\n", len(selected))
+	return nil
+}
+
+// categoryOptionItemForInit represents a category option in the category selection for init
+type categoryOptionItemForInit struct {
+	key         string
+	title       string
+	description string
+}
+
+func (c categoryOptionItemForInit) FilterValue() string { return c.title }
+func (c categoryOptionItemForInit) Title() string       { return c.title }
+func (c categoryOptionItemForInit) Description() string { return c.description }
+
+// addCustomProviderForInit allows users to add a new provider for init
+func addCustomProviderForInit(tm *config.TemplateManager) error {
+	fmt.Printf("\n%s Add Custom Provider\n", infoStyle.Render("ℹ"))
+
+	name, err := tui.Prompt("Provider name (e.g., GPT4, COPILOT):")
+	if err != nil {
+		return err
+	}
+
+	name = strings.TrimSpace(strings.ToUpper(name))
+	if name == "" {
+		return fmt.Errorf("provider name cannot be empty")
+	}
+
+	// Check if provider already exists
+	registry, err := tm.GetProviderRegistry()
+	if err != nil {
+		return err
+	}
+
+	if _, exists := registry.GetProvider(name); exists {
+		return fmt.Errorf("provider '%s' already exists", name)
+	}
+
+	description, err := tui.Prompt(fmt.Sprintf("Description for %s:", name))
+	if err != nil {
+		return err
+	}
+
+	categoryOptions := []list.Item{
+		categoryOptionItemForInit{key: "Chat", title: "Chat", description: "AI chat/conversation models"},
+		categoryOptionItemForInit{key: "Code Editor", title: "Code Editor", description: "AI-powered code editors and IDEs"},
+		categoryOptionItemForInit{key: "API", title: "API", description: "AI API services"},
+		categoryOptionItemForInit{key: "Other", title: "Other", description: "Other AI providers"},
+		categoryOptionItemForInit{key: "custom", title: "Custom Category", description: "Enter a custom category"},
+	}
+
+	selectedCategory, err := tui.ListSelection("Select provider category:", categoryOptions)
+	if err != nil {
+		return err
+	}
+
+	categoryItem, ok := selectedCategory.(categoryOptionItemForInit)
+	if !ok {
+		return fmt.Errorf("unexpected category selection type")
+	}
+
+	category := categoryItem.key
+	if category == "custom" {
+		customCategory, err := tui.Prompt("Enter custom category:")
+		if err != nil {
+			return err
+		}
+		category = strings.TrimSpace(customCategory)
+	}
+
+	enabled, err := tui.Confirm("Enable this provider by default?")
+	if err != nil {
+		return err
+	}
+
+	// Add the provider
+	provider := config.Provider{
+		Name:        name,
+		Description: description,
+		Category:    category,
+		Enabled:     enabled,
+	}
+
+	if err := tm.AddProvider(provider); err != nil {
+		return fmt.Errorf("failed to add provider: %w", err)
+	}
+
+	fmt.Printf("%s Successfully added provider '%s'!\n", successStyle.Render("✅"), name)
+	return nil
+}
+
+// providerOptionItemForInit represents a provider option in the provider selection for init
+type providerOptionItemForInit struct {
+	name        string
+	title       string
+	description string
+}
+
+func (p providerOptionItemForInit) FilterValue() string { return p.title }
+func (p providerOptionItemForInit) Title() string       { return p.title }
+func (p providerOptionItemForInit) Description() string { return p.description }
+
+// removeProviderForInit allows users to remove a provider for init
+func removeProviderForInit(tm *config.TemplateManager) error {
+	registry, err := tm.GetProviderRegistry()
+	if err != nil {
+		return err
+	}
+
+	if len(registry.Providers) == 0 {
+		fmt.Println("No providers to remove.")
+		return nil
+	}
+
+	// Create list of providers to remove (excluding defaults to prevent accidental deletion)
+	var options []list.Item
+	defaultNames := make(map[string]bool)
+	for _, defaultProvider := range config.GetDefaultProviders() {
+		defaultNames[defaultProvider.Name] = true
+	}
+
+	for _, provider := range registry.Providers {
+		title := provider.Name
+		description := provider.Description
+		
+		if defaultNames[provider.Name] {
+			description += " (default provider - not recommended to remove)"
+		}
+
+		if provider.Category != "" {
+			description = fmt.Sprintf("[%s] %s", provider.Category, description)
+		}
+
+		options = append(options, providerOptionItemForInit{
+			name:        provider.Name,
+			title:       title,
+			description: description,
+		})
+	}
+
+	if len(options) == 0 {
+		fmt.Println("No custom providers to remove.")
+		return nil
+	}
+
+	selectedItem, err := tui.ListSelection("Select provider to remove:", options)
+	if err != nil {
+		return err
+	}
+
+	providerItem, ok := selectedItem.(providerOptionItemForInit)
+	if !ok {
+		return fmt.Errorf("unexpected provider selection type")
+	}
+
+	// Confirm removal
+	confirmed, err := tui.Confirm(fmt.Sprintf("Are you sure you want to remove provider '%s'?", providerItem.name))
+	if err != nil {
+		return err
+	}
+
+	if !confirmed {
+		fmt.Println("Removal cancelled.")
+		return nil
+	}
+
+	if err := tm.RemoveProvider(providerItem.name); err != nil {
+		return fmt.Errorf("failed to remove provider: %w", err)
+	}
+
+	fmt.Printf("%s Successfully removed provider '%s'.\n", successStyle.Render("✅"), providerItem.name)
+	return nil
+}
+
+// showProviderStatusForInit displays current provider configuration for init
+func showProviderStatusForInit(tm *config.TemplateManager) error {
+	registry, err := tm.GetProviderRegistry()
+	if err != nil {
+		return err
+	}
+
+	if len(registry.Providers) == 0 {
+		fmt.Println("No providers configured.")
+		return nil
+	}
+
+	fmt.Println("\n=== Provider Status ===")
+	
+	// Group by category
+	categories := registry.GetCategories()
+	if len(categories) == 0 {
+		// No categories, show all providers
+		categories = []string{""}
+	}
+
+	for _, category := range categories {
+		if category != "" {
+			fmt.Printf("\n[%s]\n", category)
+		}
+
+		var providersInCategory []config.Provider
+		if category == "" {
+			// Show providers with no category
+			for _, provider := range registry.Providers {
+				if provider.Category == "" {
+					providersInCategory = append(providersInCategory, provider)
+				}
+			}
+		} else {
+			providersInCategory = registry.GetProvidersByCategory(category)
+		}
+
+		for _, provider := range providersInCategory {
+			status := "✗ Disabled"
+			if provider.Enabled {
+				status = "✓ Enabled"
+			}
+			
+			fmt.Printf("  %s %s\n", status, provider.Name)
+			if provider.Description != "" {
+				fmt.Printf("    %s\n", provider.Description)
+			}
+		}
+	}
+
+	enabledCount := len(registry.GetEnabledProviders())
+	totalCount := len(registry.Providers)
+	fmt.Printf("\nSummary: %d/%d providers enabled\n", enabledCount, totalCount)
+
+	return nil
 }
