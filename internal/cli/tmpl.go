@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/rizome-dev/rizome/internal/config"
+	"github.com/rizome-dev/rizome/internal/sync"
 	"github.com/rizome-dev/rizome/internal/tui"
 )
 
@@ -566,8 +567,8 @@ func createStructuredTemplate(name, description string) (*config.Template, error
 	templateParts = append(templateParts, "## Provider Overrides")
 	templateParts = append(templateParts, "")
 
-	// List of supported providers
-	providers := []string{"CLAUDE", "QWEN", "CURSOR", "GEMINI", "WINDSURF"}
+	// Get providers from registry
+	providers := sync.GetAvailableProviders()
 
 	for _, provider := range providers {
 		templateParts = append(templateParts, "### "+provider)

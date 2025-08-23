@@ -295,3 +295,220 @@ func TestTemplateManagerInvalidOperations(t *testing.T) {
 		t.Error("Deleting non-existent template should return an error")
 	}
 }
+
+func TestTemplateManagerWithProviderRegistry(t *testing.T) {
+	// Create temporary directory for test
+	tempDir, err := os.MkdirTemp("", "rizome-template-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create template manager with custom config directory
+	tm := &TemplateManager{
+		configDir:  tempDir,
+		configFile: filepath.Join(tempDir, "config.yaml"),
+	}
+
+	// Test loading config creates provider registry
+	config, err := tm.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	if config.Registry == nil {
+		t.Error("Config should have provider registry")
+	}
+
+	if len(config.Registry.Providers) == 0 {
+		t.Error("Provider registry should have default providers")
+	}
+
+	// Test that default providers are enabled
+	enabledProviders := config.Registry.GetEnabledProviders()
+	if len(enabledProviders) == 0 {
+		t.Error("Should have enabled providers by default")
+	}
+
+	expectedProviders := []string{"CLAUDE", "QWEN", "CURSOR", "GEMINI", "WINDSURF"}
+	if len(enabledProviders) != len(expectedProviders) {
+		t.Errorf("Expected %d enabled providers, got %d", len(expectedProviders), len(enabledProviders))
+	}
+}
+
+func TestTemplateManagerProviderRegistryOperations(t *testing.T) {
+	// Create temporary directory for test
+	tempDir, err := os.MkdirTemp("", "rizome-template-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create template manager with custom config directory
+	tm := &TemplateManager{
+		configDir:  tempDir,
+		configFile: filepath.Join(tempDir, "config.yaml"),
+	}
+
+	// Test GetProviderRegistry
+	registry, err := tm.GetProviderRegistry()
+	if err != nil {
+		t.Fatalf("Failed to get provider registry: %v", err)
+	}
+
+	if registry == nil {
+		t.Error("Provider registry should not be nil")
+	}
+
+	// Test GetEnabledProviders
+	enabledProviders, err := tm.GetEnabledProviders()
+	if err != nil {
+		t.Fatalf("Failed to get enabled providers: %v", err)
+	}
+
+	if len(enabledProviders) == 0 {
+		t.Error("Should have enabled providers")
+	}
+
+	// Test GetAllProviders
+	allProviders, err := tm.GetAllProviders()
+	if err != nil {
+		t.Fatalf("Failed to get all providers: %v", err)
+	}
+
+	if len(allProviders) < len(enabledProviders) {
+		t.Error("All providers should be >= enabled providers")
+	}
+
+	// Test SetProviderEnabled
+	err = tm.SetProviderEnabled("CLAUDE", false)
+	if err != nil {
+		t.Fatalf("Failed to disable CLAUDE provider: %v", err)
+	}
+
+	// Verify provider is disabled
+	enabledAfterDisable, err := tm.GetEnabledProviders()
+	if err != nil {
+		t.Fatalf("Failed to get enabled providers after disable: %v", err)
+	}
+
+	if len(enabledAfterDisable) >= len(enabledProviders) {
+		t.Error("Enabled providers count should decrease after disabling one")
+	}
+
+	// Check that CLAUDE is not in enabled list
+	for _, provider := range enabledAfterDisable {
+		if provider == "CLAUDE" {
+			t.Error("CLAUDE should not be in enabled providers list")
+		}
+	}
+
+	// Re-enable CLAUDE
+	err = tm.SetProviderEnabled("CLAUDE", true)
+	if err != nil {
+		t.Fatalf("Failed to re-enable CLAUDE provider: %v", err)
+	}
+
+	// Verify CLAUDE is enabled again
+	enabledAfterEnable, err := tm.GetEnabledProviders()
+	if err != nil {
+		t.Fatalf("Failed to get enabled providers after enable: %v", err)
+	}
+
+	claudeFound := false
+	for _, provider := range enabledAfterEnable {
+		if provider == "CLAUDE" {
+			claudeFound = true
+			break
+		}
+	}
+	if !claudeFound {
+		t.Error("CLAUDE should be in enabled providers list after re-enabling")
+	}
+}
+
+func TestTemplateManagerCustomProviders(t *testing.T) {
+	// Create temporary directory for test
+	tempDir, err := os.MkdirTemp("", "rizome-template-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create template manager with custom config directory
+	tm := &TemplateManager{
+		configDir:  tempDir,
+		configFile: filepath.Join(tempDir, "config.yaml"),
+	}
+
+	// Test AddProvider
+	testProvider := Provider{
+		Name:        "TEST_AI",
+		Description: "Test AI Provider",
+		Enabled:     true,
+		Category:    "Test",
+	}
+
+	err = tm.AddProvider(testProvider)
+	if err != nil {
+		t.Fatalf("Failed to add test provider: %v", err)
+	}
+
+	// Verify provider was added
+	allProviders, err := tm.GetAllProviders()
+	if err != nil {
+		t.Fatalf("Failed to get all providers: %v", err)
+	}
+
+	testProviderFound := false
+	for _, provider := range allProviders {
+		if provider == "TEST_AI" {
+			testProviderFound = true
+			break
+		}
+	}
+	if !testProviderFound {
+		t.Error("TEST_AI provider should be in all providers list")
+	}
+
+	// Verify provider is enabled
+	enabledProviders, err := tm.GetEnabledProviders()
+	if err != nil {
+		t.Fatalf("Failed to get enabled providers: %v", err)
+	}
+
+	testProviderEnabled := false
+	for _, provider := range enabledProviders {
+		if provider == "TEST_AI" {
+			testProviderEnabled = true
+			break
+		}
+	}
+	if !testProviderEnabled {
+		t.Error("TEST_AI provider should be enabled")
+	}
+
+	// Test RemoveProvider
+	err = tm.RemoveProvider("TEST_AI")
+	if err != nil {
+		t.Fatalf("Failed to remove test provider: %v", err)
+	}
+
+	// Verify provider was removed
+	allProvidersAfterRemove, err := tm.GetAllProviders()
+	if err != nil {
+		t.Fatalf("Failed to get all providers after remove: %v", err)
+	}
+
+	for _, provider := range allProvidersAfterRemove {
+		if provider == "TEST_AI" {
+			t.Error("TEST_AI provider should be removed from all providers list")
+		}
+	}
+
+	// Test removing non-existent provider
+	err = tm.RemoveProvider("NONEXISTENT")
+	if err == nil {
+		t.Error("Removing non-existent provider should return error")
+	}
+}

@@ -11,37 +11,39 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/rizome-dev/rizome/internal/config"
+	"github.com/rizome-dev/rizome/internal/sync"
 	"github.com/rizome-dev/rizome/internal/tui"
 )
 
-const rizomeTemplate = `# RIZOME.md
-
-Project overview and context.
-
-## Common Instructions
-
-Instructions that apply to all providers:
-- Project type and technology stack
-- Coding standards and conventions
-- General best practices
-
-## Provider Overrides
-
-### CLAUDE
-Claude-specific instructions
-
-### QWEN
-Qwen-specific instructions
-
-### CURSOR
-Cursor-specific instructions
-
-### GEMINI
-Gemini-specific instructions
-
-### WINDSURF
-Windsurf-specific instructions
-`
+// generateDefaultTemplate creates a default RIZOME.md template based on available providers
+func generateDefaultTemplate() string {
+	providers := sync.GetAvailableProviders()
+	
+	var parts []string
+	parts = append(parts, "# RIZOME.md")
+	parts = append(parts, "")
+	parts = append(parts, "Project overview and context.")
+	parts = append(parts, "")
+	parts = append(parts, "## Common Instructions")
+	parts = append(parts, "")
+	parts = append(parts, "Instructions that apply to all providers:")
+	parts = append(parts, "- Project type and technology stack")
+	parts = append(parts, "- Coding standards and conventions")
+	parts = append(parts, "- General best practices")
+	parts = append(parts, "")
+	parts = append(parts, "## Provider Overrides")
+	parts = append(parts, "")
+	
+	for _, provider := range providers {
+		parts = append(parts, "### "+provider)
+		parts = append(parts, fmt.Sprintf("%s-specific instructions", provider))
+		parts = append(parts, "")
+	}
+	
+	// Remove trailing newline
+	content := strings.Join(parts, "\n")
+	return strings.TrimSuffix(content, "\n")
+}
 
 // InitCmd creates the init command
 func InitCmd() *cobra.Command {
@@ -111,11 +113,11 @@ func runInitInteractive(force bool, templateKey string) error {
 	if templateKey != "" {
 		tm, err := config.NewTemplateManager()
 		if err != nil {
-			// Fallback to hardcoded template if template manager fails
+			// Fallback to dynamically generated template if template manager fails
 			fmt.Printf("%s Template manager not available, using default template\n", infoStyle.Render("ℹ"))
 			selectedTemplate = &config.Template{
 				Name:    "Default Template",
-				Content: rizomeTemplate,
+				Content: generateDefaultTemplate(),
 			}
 		} else {
 			template, err := tm.GetTemplate(templateKey)
@@ -155,30 +157,30 @@ func runInitInteractive(force bool, templateKey string) error {
 func selectTemplateForInit() (*config.Template, error) {
 	tm, err := config.NewTemplateManager()
 	if err != nil {
-		// Fallback to hardcoded template if template manager fails
+		// Fallback to dynamically generated template if template manager fails
 		fmt.Printf("%s Template manager not available, using default template\n", infoStyle.Render("ℹ"))
 		return &config.Template{
 			Name:    "Default Template",
-			Content: rizomeTemplate,
+			Content: generateDefaultTemplate(),
 		}, nil
 	}
 
 	templates, err := tm.ListTemplates()
 	if err != nil {
-		// Fallback to hardcoded template
+		// Fallback to dynamically generated template
 		fmt.Printf("%s Failed to load templates, using default template\n", infoStyle.Render("ℹ"))
 		return &config.Template{
 			Name:    "Default Template",
-			Content: rizomeTemplate,
+			Content: generateDefaultTemplate(),
 		}, nil
 	}
 
 	if len(templates) == 0 {
-		// Fallback to hardcoded template
+		// Fallback to dynamically generated template
 		fmt.Printf("%s No templates available, using default template\n", infoStyle.Render("ℹ"))
 		return &config.Template{
 			Name:    "Default Template",
-			Content: rizomeTemplate,
+			Content: generateDefaultTemplate(),
 		}, nil
 	}
 
@@ -380,8 +382,8 @@ func createStructuredTemplateInit(name, description string) (*config.Template, e
 	templateParts = append(templateParts, "## Provider Overrides")
 	templateParts = append(templateParts, "")
 
-	// List of supported providers
-	providers := []string{"CLAUDE", "QWEN", "CURSOR", "GEMINI", "WINDSURF"}
+	// Get providers from registry
+	providers := sync.GetAvailableProviders()
 
 	for _, provider := range providers {
 		templateParts = append(templateParts, "### "+provider)

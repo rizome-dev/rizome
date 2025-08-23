@@ -36,6 +36,7 @@ type Template struct {
 // TemplateConfig represents the structure of the template configuration file
 type TemplateConfig struct {
 	Templates map[string]Template `yaml:"templates"`
+	Registry  *ProviderRegistry   `yaml:"provider_registry,omitempty"`
 }
 
 // DefaultTemplate returns the default RIZOME.md template
@@ -121,9 +122,12 @@ func NewTemplateManager() (*TemplateManager, error) {
 func (tm *TemplateManager) LoadConfig() (*TemplateConfig, error) {
 	// Check if config file exists
 	if _, err := os.Stat(tm.configFile); os.IsNotExist(err) {
-		// Create default config with default templates
+		// Create default config with default templates and provider registry
 		config := &TemplateConfig{
 			Templates: GetDefaultTemplates(),
+			Registry: &ProviderRegistry{
+				Providers: GetDefaultProviders(),
+			},
 		}
 
 		// Save the default config
@@ -156,6 +160,21 @@ func (tm *TemplateManager) LoadConfig() (*TemplateConfig, error) {
 		if _, exists := config.Templates[key]; !exists {
 			config.Templates[key] = template
 		}
+	}
+
+	// Ensure provider registry exists
+	if config.Registry == nil {
+		config.Registry = &ProviderRegistry{
+			Providers: GetDefaultProviders(),
+		}
+	} else if len(config.Registry.Providers) == 0 {
+		// Migrate from empty registry to default providers
+		config.Registry.Providers = GetDefaultProviders()
+	}
+
+	// Validate provider registry
+	if err := config.Registry.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid provider registry: %w", err)
 	}
 
 	return &config, nil
@@ -237,6 +256,91 @@ func (tm *TemplateManager) TemplateExists(key string) (bool, error) {
 
 	_, exists := config.Templates[key]
 	return exists, nil
+}
+
+// GetProviderRegistry returns the provider registry from config
+func (tm *TemplateManager) GetProviderRegistry() (*ProviderRegistry, error) {
+	config, err := tm.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+	
+	return config.Registry, nil
+}
+
+// UpdateProviderRegistry updates the provider registry in config
+func (tm *TemplateManager) UpdateProviderRegistry(registry *ProviderRegistry) error {
+	config, err := tm.LoadConfig()
+	if err != nil {
+		return err
+	}
+	
+	// Validate the registry before saving
+	if err := registry.Validate(); err != nil {
+		return fmt.Errorf("invalid provider registry: %w", err)
+	}
+	
+	config.Registry = registry
+	return tm.SaveConfig(config)
+}
+
+// GetEnabledProviders returns the list of enabled providers
+func (tm *TemplateManager) GetEnabledProviders() ([]string, error) {
+	registry, err := tm.GetProviderRegistry()
+	if err != nil {
+		return nil, err
+	}
+	
+	return registry.GetEnabledProviders(), nil
+}
+
+// GetAllProviders returns all providers regardless of status
+func (tm *TemplateManager) GetAllProviders() ([]string, error) {
+	registry, err := tm.GetProviderRegistry()
+	if err != nil {
+		return nil, err
+	}
+	
+	return registry.GetAllProviders(), nil
+}
+
+// SetProviderEnabled enables or disables a provider
+func (tm *TemplateManager) SetProviderEnabled(name string, enabled bool) error {
+	config, err := tm.LoadConfig()
+	if err != nil {
+		return err
+	}
+	
+	if err := config.Registry.SetProviderEnabled(name, enabled); err != nil {
+		return err
+	}
+	
+	return tm.SaveConfig(config)
+}
+
+// AddProvider adds a new provider to the registry
+func (tm *TemplateManager) AddProvider(provider Provider) error {
+	config, err := tm.LoadConfig()
+	if err != nil {
+		return err
+	}
+	
+	config.Registry.UpdateProvider(provider)
+	return tm.SaveConfig(config)
+}
+
+// RemoveProvider removes a provider from the registry
+func (tm *TemplateManager) RemoveProvider(name string) error {
+	config, err := tm.LoadConfig()
+	if err != nil {
+		return err
+	}
+	
+	if !config.Registry.RemoveProvider(name) {
+		return fmt.Errorf("provider '%s' not found", name)
+	}
+	
+	return tm.SaveConfig(config)
 }
 
 // InjectTimestamp adds or updates the current date timestamp for AI model grounding

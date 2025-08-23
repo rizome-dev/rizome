@@ -94,6 +94,7 @@ Simply type rizome help [path to command] for full details.`,
 		InitCmd(),
 		SyncCmd(),
 		TmplCmd(),
+		SetupCmd(),
 		CompletionCmd(),
 	)
 
@@ -111,6 +112,7 @@ Main Commands:
   init        Interactive RIZOME.md creation from templates
   sync        Interactive provider configuration synchronization  
   tmpl        Manage RIZOME.md templates
+  setup       Manage provider registry and default settings
 
 System Commands:
   completion  Generate shell completions
@@ -137,6 +139,7 @@ Main Commands:
   init        Interactive RIZOME.md creation from templates
   sync        Interactive provider configuration synchronization  
   tmpl        Manage RIZOME.md templates
+  setup       Manage provider registry and default settings
 
 System Commands:
   completion  Generate shell completions

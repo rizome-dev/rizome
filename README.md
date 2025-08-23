@@ -27,6 +27,22 @@ Download the latest binary for your platform from the [releases page](https://gi
 
 ## Commands
 
+### `rizome setup`
+
+```bash
+# Manage provider registry and configure default settings
+rizome setup
+```
+
+The `setup` command provides an interactive interface for managing your AI provider registry:
+
+- **Manage Provider Settings**: Enable or disable providers and view current settings
+- **Add Custom Providers**: Add new AI providers to your personal registry
+- **Remove Providers**: Remove providers from your registry
+- **View Provider Status**: See which providers are enabled and their configurations
+
+All provider settings are stored in `~/.rizome/config.yaml` and affect the default selections in other commands like `sync`.
+
 ### `rizome init`
 
 ```bash
@@ -41,6 +57,8 @@ rizome init --template my-template-key
 ```
 
 The `init` command now provides an interactive template selection interface. You can choose from saved templates or create a new one on the fly.
+
+By default, all RIZOME.md files and the corresponding sync'd PROVIDER.md files have a Current Date comment pinned to the top; all `rizome` commands update this tag, making it simple to inject context about the current date for research purposes.
 
 ### `rizome tmpl`
 
@@ -83,18 +101,20 @@ rizome sync --force
 # Non-interactive mode with specific providers
 rizome sync --providers claude,qwen,cursor
 
-# Non-interactive mode
+# Non-interactive mode (syncs enabled providers from registry)
 rizome sync --non-interactive
 ```
 
-The `sync` command now provides an interactive checkbox interface for selecting which providers to sync. All providers are selected by default, and you can check/uncheck providers as needed.
+The `sync` command provides an interactive checkbox interface for selecting which providers to sync. Providers enabled in your registry (see `rizome setup`) are pre-selected by default. You can override these selections during interactive sync.
 
-This will create/update individual provider configuration files:
-- `CLAUDE.md`
-- `QWEN.md`
-- `CURSOR.md`
-- `GEMINI.md`
-- `WINDSURF.md`
+This will create/update individual provider configuration files for enabled providers. Default providers include:
+- `CLAUDE.md` - Claude Code and Claude API
+- `QWEN.md` - Qwen Code and Qwen models  
+- `CURSOR.md` - Cursor AI IDE
+- `GEMINI.md` - Gemini CLI and Gemini models
+- `WINDSURF.md` - Windsurf AI development environment
+
+You can add custom providers or modify these defaults using `rizome setup`.
 
 #### RIZOME.md Format
 
@@ -105,13 +125,17 @@ The `RIZOME.md` file uses a structured format:
 - **Common Instructions**: Instructions that apply to all AI providers
 - **Provider Overrides**: Provider-specific instructions organized by provider name
 
-##### Supported Providers
+##### Default Providers
+
+The following providers are included by default (manageable via `rizome setup`):
 
 - `CLAUDE` - Claude Code and Claude API
 - `QWEN` - Qwen Code and Qwen models
 - `CURSOR` - Cursor AI IDE
 - `GEMINI` - Gemini CLI and Gemini models
 - `WINDSURF` - Windsurf AI development environment
+
+**Note**: You can add custom providers, enable/disable default providers, and manage your provider registry using the `rizome setup` command.
 
 ##### Example Structure
 
@@ -146,6 +170,32 @@ Windsurf-specific instructions
 ```
 
 ## Use Cases
+
+### Provider Registry Management
+
+Configure your personal AI provider preferences and manage custom providers:
+
+```bash
+# Set up your provider preferences
+rizome setup
+
+# View current provider status
+rizome setup  # Select "Show Provider Status"
+
+# Add a custom AI provider
+rizome setup  # Select "Add Custom Provider"
+
+# Disable providers you don't use
+rizome setup  # Select "Manage Provider Settings"
+```
+
+The setup command lets you:
+- Enable or disable providers (affects default selections in `sync`)
+- Add custom AI providers with descriptions and categories  
+- Remove providers you no longer need
+- View comprehensive provider status and settings
+
+All settings are stored in `~/.rizome/config.yaml` and persist across projects.
 
 ### Multi-Provider Development
 

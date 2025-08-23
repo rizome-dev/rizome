@@ -30,7 +30,7 @@ type SyncResult struct {
 	Error    error
 }
 
-// Standard providers to sync
+// Standard providers to sync (fallback when registry is not available)
 var standardProviders = []string{"CLAUDE", "QWEN", "CURSOR", "GEMINI", "WINDSURF"}
 
 // New creates a new sync manager
@@ -63,11 +63,45 @@ func (m *Manager) parseRizomeFile() (*Config, error) {
 	return parseRizomeContent(string(content))
 }
 
+// GetAvailableProviders returns the list of all available providers from registry
+func GetAvailableProviders() []string {
+	tm, err := config.NewTemplateManager()
+	if err != nil {
+		// Fallback to standard providers if registry unavailable
+		return standardProviders
+	}
+	
+	allProviders, err := tm.GetAllProviders()
+	if err != nil || len(allProviders) == 0 {
+		// Fallback to standard providers if registry empty or error
+		return standardProviders
+	}
+	
+	return allProviders
+}
+
+// GetEnabledProviders returns the list of enabled providers from registry
+func GetEnabledProviders() []string {
+	tm, err := config.NewTemplateManager()
+	if err != nil {
+		// Fallback to standard providers if registry unavailable
+		return standardProviders
+	}
+	
+	enabledProviders, err := tm.GetEnabledProviders()
+	if err != nil || len(enabledProviders) == 0 {
+		// Fallback to standard providers if registry empty or error
+		return standardProviders
+	}
+	
+	return enabledProviders
+}
+
 // parseRizomeContent parses the content of RIZOME.md
 func parseRizomeContent(content string) (*Config, error) {
 	config := &Config{
 		ProviderOverrides: make(map[string]string),
-		Providers:         standardProviders,
+		Providers:         GetAvailableProviders(),
 	}
 
 	lines := strings.Split(content, "\n")

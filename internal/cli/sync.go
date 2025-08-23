@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/rizome-dev/rizome/internal/config"
 	"github.com/rizome-dev/rizome/internal/sync"
 	"github.com/rizome-dev/rizome/internal/tui"
 	"github.com/spf13/cobra"
@@ -43,10 +44,10 @@ CURSOR.md, GEMINI.md, WINDSURF.md).
 
 Interactive Mode (default):
   Select which providers to sync using an interactive checkbox interface.
-  All providers are selected by default.
+  Providers enabled in the registry (see 'rizome setup') are pre-selected by default.
 
 Non-Interactive Mode:
-  Use --non-interactive flag to sync all providers or specify providers with --providers.
+  Use --non-interactive flag to sync enabled providers or specify providers with --providers.
 
 RIZOME.md format:
   # RIZOME.md
@@ -63,7 +64,10 @@ RIZOME.md format:
 
 The sync command will create or update individual provider files with:
 1. Common instructions section
-2. Provider-specific overrides (if any)`,
+2. Provider-specific overrides (if any)
+
+Provider Registry:
+  Use 'rizome setup' to manage which providers are enabled by default.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSyncInteractive(dryRun, force, nonInteractive, providers)
 		},
@@ -71,7 +75,7 @@ The sync command will create or update individual provider files with:
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be changed without making changes")
 	cmd.Flags().BoolVar(&force, "force", false, "Overwrite existing files without prompting")
-	cmd.Flags().BoolVar(&nonInteractive, "non-interactive", false, "Run in non-interactive mode (sync all providers)")
+	cmd.Flags().BoolVar(&nonInteractive, "non-interactive", false, "Run in non-interactive mode (sync enabled providers)")
 	cmd.Flags().StringVar(&providers, "providers", "", "Comma-separated list of providers to sync (requires --non-interactive)")
 
 	return cmd
@@ -122,8 +126,8 @@ func runSyncInteractive(dryRun, force, nonInteractive bool, providersFlag string
 
 			selectedProviders = specifiedProviders
 		} else {
-			// Use all providers
-			selectedProviders = availableProviders
+			// Use enabled providers from registry as default
+			selectedProviders = sync.GetEnabledProviders()
 		}
 	} else {
 		// Interactive mode - show provider selection
@@ -185,48 +189,74 @@ func runSyncInteractive(dryRun, force, nonInteractive bool, providersFlag string
 }
 
 // selectProvidersForSync shows an interactive provider selection interface
-func selectProvidersForSync(availableProviders []string, config *sync.Config) ([]string, error) {
+func selectProvidersForSync(availableProviders []string, syncConfig *sync.Config) ([]string, error) {
 	// Show current RIZOME.md summary
 	fmt.Printf("%s RIZOME.md Summary:\n", infoStyle.Render("ℹ"))
 
-	if config.CommonInstructions != "" {
-		lines := strings.Split(config.CommonInstructions, "\n")
+	if syncConfig.CommonInstructions != "" {
+		lines := strings.Split(syncConfig.CommonInstructions, "\n")
 		fmt.Printf("  Common Instructions: %d lines\n", len(lines))
 	} else {
 		fmt.Printf("  Common Instructions: none\n")
 	}
 
-	overrideCount := len(config.ProviderOverrides)
+	overrideCount := len(syncConfig.ProviderOverrides)
 	if overrideCount > 0 {
-		fmt.Printf("  Provider Overrides: %d (%s)\n", overrideCount, strings.Join(getOverrideKeys(config.ProviderOverrides), ", "))
+		fmt.Printf("  Provider Overrides: %d (%s)\n", overrideCount, strings.Join(getOverrideKeys(syncConfig.ProviderOverrides), ", "))
 	} else {
 		fmt.Printf("  Provider Overrides: none\n")
 	}
 
 	fmt.Println()
 
+	// Get enabled providers from registry for default selections
+	enabledProviders := sync.GetEnabledProviders()
+	enabledMap := make(map[string]bool)
+	for _, provider := range enabledProviders {
+		enabledMap[provider] = true
+	}
+
+	// Get provider registry for descriptions
+	tm, err := config.NewTemplateManager()
+	var registry *config.ProviderRegistry
+	if err == nil {
+		registry, err = tm.GetProviderRegistry()
+	}
+
 	// Create checkbox options for providers
 	var options []tui.CheckboxOption
 	for _, provider := range availableProviders {
 		description := fmt.Sprintf("Generate %s.md file", provider)
-		if _, hasOverride := config.ProviderOverrides[provider]; hasOverride {
+		if _, hasOverride := syncConfig.ProviderOverrides[provider]; hasOverride {
 			description += " (has specific overrides)"
 		}
+
+		// Add provider description from registry if available
+		if registry != nil {
+			if providerInfo, exists := registry.GetProvider(provider); exists {
+				if providerInfo.Description != "" {
+					description = fmt.Sprintf("%s - %s", description, providerInfo.Description)
+				}
+				if providerInfo.Category != "" {
+					description = fmt.Sprintf("[%s] %s", providerInfo.Category, description)
+				}
+			}
+		}
+
+		// Check if provider is enabled by default in registry
+		isEnabledByDefault := enabledMap[provider]
 
 		option := tui.CheckboxOption{
 			Label:       provider,
 			Description: description,
 			Value:       provider,
-			Checked:     true, // All selected by default
+			Checked:     isEnabledByDefault, // Use registry default
 		}
 		options = append(options, option)
 	}
 
 	// Show provider selection
-	selected, err := tui.CheckboxSelection(
-		"📋 Select providers to sync:",
-		options,
-	)
+	selected, err := tui.CheckboxSelection("Select providers to sync (registry defaults pre-selected):", options)
 
 	if err != nil {
 		return nil, err
@@ -238,7 +268,7 @@ func selectProvidersForSync(availableProviders []string, config *sync.Config) ([
 			return nil, err
 		}
 		if !confirmed {
-			return selectProvidersForSync(availableProviders, config) // Try again
+			return selectProvidersForSync(availableProviders, syncConfig) // Try again
 		}
 	}
 
