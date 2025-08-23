@@ -49,7 +49,7 @@ func New(baseDir string) (*Manager, error) {
 // parseRizomeFile parses RIZOME.md and extracts configuration
 func (m *Manager) parseRizomeFile() (*Config, error) {
 	rizomePath := filepath.Join(m.baseDir, "RIZOME.md")
-	
+
 	content, err := os.ReadFile(rizomePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -75,7 +75,7 @@ func parseRizomeContent(content string) (*Config, error) {
 
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		
+
 		// Check for main sections
 		if strings.HasPrefix(trimmed, "## ") {
 			// Save previous section
@@ -87,11 +87,11 @@ func parseRizomeContent(content string) (*Config, error) {
 					config.ProviderOverrides[currentProvider] = content
 				}
 			}
-			
+
 			// Start new section
 			sectionContent.Reset()
 			currentProvider = ""
-			
+
 			sectionTitle := strings.ToLower(strings.TrimSpace(trimmed[3:]))
 			if strings.Contains(sectionTitle, "common") {
 				currentSection = "common"
@@ -102,7 +102,7 @@ func parseRizomeContent(content string) (*Config, error) {
 			}
 			continue
 		}
-		
+
 		// Check for provider subsections
 		if strings.HasPrefix(trimmed, "### ") && currentSection == "providers" {
 			// Save previous provider
@@ -110,19 +110,19 @@ func parseRizomeContent(content string) (*Config, error) {
 				content := strings.TrimSpace(sectionContent.String())
 				config.ProviderOverrides[currentProvider] = content
 			}
-			
+
 			// Start new provider
 			sectionContent.Reset()
 			currentProvider = strings.ToUpper(strings.TrimSpace(trimmed[4:]))
 			continue
 		}
-		
+
 		// Add line to current section
 		if currentSection != "" {
 			sectionContent.WriteString(line + "\n")
 		}
 	}
-	
+
 	// Save final section
 	if currentSection != "" {
 		content := strings.TrimSpace(sectionContent.String())
@@ -136,11 +136,28 @@ func parseRizomeContent(content string) (*Config, error) {
 	return config, nil
 }
 
-// Sync performs the synchronization operation
+// GetConfig returns the parsed configuration
+func (m *Manager) GetConfig() *Config {
+	return m.config
+}
+
+// Sync performs the synchronization operation for all providers
 func (m *Manager) Sync(dryRun, force bool) ([]SyncResult, error) {
 	var results []SyncResult
 
 	for _, provider := range m.config.Providers {
+		result := m.syncProvider(provider, dryRun, force)
+		results = append(results, result)
+	}
+
+	return results, nil
+}
+
+// SyncProviders performs the synchronization operation for specific providers
+func (m *Manager) SyncProviders(providers []string, dryRun, force bool) ([]SyncResult, error) {
+	var results []SyncResult
+
+	for _, provider := range providers {
 		result := m.syncProvider(provider, dryRun, force)
 		results = append(results, result)
 	}

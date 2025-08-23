@@ -27,18 +27,67 @@ Download the latest binary for your platform from the [releases page](https://gi
 
 ## Commands
 
+### `rizome init`
+
+```bash
+# Create a new RIZOME.md interactively from templates
+rizome init
+
+# Force overwrite existing RIZOME.md
+rizome init --force
+
+# Use a specific template (non-interactive)
+rizome init --template my-template-key
+```
+
+The `init` command now provides an interactive template selection interface. You can choose from saved templates or create a new one on the fly.
+
+### `rizome tmpl`
+
+```bash
+# List all available templates
+rizome tmpl
+rizome tmpl list
+
+# Add a new template interactively
+rizome tmpl add
+rizome tmpl add "My Template Name"
+
+# Edit an existing template
+rizome tmpl edit
+rizome tmpl edit "Template Name"
+
+# Show template content
+rizome tmpl show
+rizome tmpl show "Template Name"
+
+# Delete a template
+rizome tmpl delete
+rizome tmpl delete "Template Name" --force
+```
+
+Templates are stored in `~/.rizome/config.yaml` and can be reused across projects. The template management system allows you to create, edit, and organize reusable RIZOME.md templates.
+
 ### `rizome sync`
 
 ```bash
-# Preview what will be changed
+# Interactive provider selection and preview changes
 rizome sync --dry-run
 
-# Apply the synchronization
+# Interactive provider selection and apply synchronization
 rizome sync
 
 # Force overwrite existing files
 rizome sync --force
+
+# Non-interactive mode with specific providers
+rizome sync --providers claude,qwen,cursor
+
+# Non-interactive mode
+rizome sync --non-interactive
 ```
+
+The `sync` command now provides an interactive checkbox interface for selecting which providers to sync. All providers are selected by default, and you can check/uncheck providers as needed.
 
 This will create/update individual provider configuration files:
 - `CLAUDE.md`
@@ -103,8 +152,14 @@ Windsurf-specific instructions
 Keep all your AI development environments synchronized with a single source of truth:
 
 ```bash
-# Update your RIZOME.md with new project requirements
-# Then sync across all providers
+# Initialize a new RIZOME.md from templates (interactive)
+rizome init
+
+# Or use a specific template
+rizome init --template my-project-template
+
+# Edit RIZOME.md with your project requirements
+# Then interactively sync across selected providers
 rizome sync
 ```
 
@@ -113,29 +168,56 @@ rizome sync
 Share consistent AI provider configurations across your team:
 
 ```bash
-# Team lead updates RIZOME.md with coding standards
+# Team lead creates and saves a team template
+rizome tmpl add "Team Standards"
+# Edit template with coding standards
+# Then create project RIZOME.md from template
+rizome init --template team-standards
 git add RIZOME.md
-git commit -m "Update coding standards"
+git commit -m "Add coding standards"
 git push
 
 # Team members sync their environments
 git pull
-rizome sync
+rizome sync  # Interactive provider selection
 ```
 
 ### Project Templates
 
-Create reusable project templates with pre-configured AI provider settings:
+Create and manage reusable project templates with pre-configured AI provider settings:
 
 ```bash
-# In your project template repository
-echo "Standard RIZOME.md configuration" > RIZOME.md
-rizome sync
+# Create and save reusable templates
+rizome tmpl add "Go Backend"
+rizome tmpl add "Python ML"
+rizome tmpl add "Frontend Project"
 
-# Users of your template get consistent AI behavior
-git clone your-template
-cd your-template
-rizome sync
+# Use templates in new projects
+rizome init --template go-backend
+# or select interactively
+rizome init
+
+# List and manage your templates
+rizome tmpl list
+rizome tmpl show "React Project"
+rizome tmpl edit "React Project"
+
+# Share templates across team (stored in ~/.rizome/config.yaml)
+scp ~/.rizome/config.yaml teammate@host:~/.rizome/
+```
+
+### Template Management Workflow
+
+```bash
+# Create templates for different project types
+rizome tmpl add "Frontend Project"  # Add React/Vue/Angular specific instructions
+rizome tmpl add "Backend API"       # Add API development guidelines  
+rizome tmpl add "ML Pipeline"       # Add data science and ML instructions
+
+# Use templates when starting new projects
+cd new-frontend-project
+rizome init --template frontend-project
+rizome sync --providers claude,cursor  # Select specific providers
 ```
 
 ---

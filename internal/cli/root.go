@@ -91,7 +91,9 @@ Simply type rizome help [path to command] for full details.`,
 
 	// Add main commands
 	rootCmd.AddCommand(
+		InitCmd(),
 		SyncCmd(),
+		TmplCmd(),
 		CompletionCmd(),
 	)
 
@@ -106,7 +108,9 @@ Usage:
   {{.UseLine}}
 
 Main Commands:
-  sync        Synchronize RIZOME.md with provider-specific configuration files
+  init        Interactive RIZOME.md creation from templates
+  sync        Interactive provider configuration synchronization  
+  tmpl        Manage RIZOME.md templates
 
 System Commands:
   completion  Generate shell completions
@@ -130,7 +134,9 @@ Usage:
   rizome [command]
 
 Main Commands:
-  sync        Synchronize RIZOME.md with provider-specific configuration files
+  init        Interactive RIZOME.md creation from templates
+  sync        Interactive provider configuration synchronization  
+  tmpl        Manage RIZOME.md templates
 
 System Commands:
   completion  Generate shell completions

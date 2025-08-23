@@ -106,8 +106,10 @@ release:
     
     ## Quick Start
     ```bash
-    # Create a RIZOME.md file in your project
-    # Then sync provider configurations
+    # Initialize a new RIZOME.md template
+    rizome init
+    
+    # Sync provider configurations
     rizome sync
     
     # View help
@@ -146,7 +148,8 @@ brews:
       🚀 Rizome CLI is ready to use!
       
       To get started:
-        1. Create a RIZOME.md file in your project directory
-        2. Run 'rizome sync' to synchronize provider configurations
+        1. Run 'rizome init' to create a RIZOME.md template
+        2. Edit RIZOME.md with your project details
+        3. Run 'rizome sync' to synchronize provider configurations
       
       For more information: https://github.com/rizome-dev/rizome
