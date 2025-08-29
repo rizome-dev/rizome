@@ -17,6 +17,7 @@ type Manager struct {
 
 // Config represents parsed RIZOME.md configuration
 type Config struct {
+	ProjectOverview    string
 	CommonInstructions string
 	ProviderOverrides  map[string]string
 	Providers          []string
@@ -108,12 +109,28 @@ func parseRizomeContent(content string) (*Config, error) {
 	var currentSection string
 	var sectionContent strings.Builder
 	var currentProvider string
+	var overviewContent strings.Builder
+	var inHeader bool = false
+	var headerFound bool = false
 
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
+		// Check for main header
+		if strings.HasPrefix(trimmed, "# ") && !headerFound {
+			headerFound = true
+			inHeader = true
+			continue // Skip the header line itself
+		}
+
 		// Check for main sections
 		if strings.HasPrefix(trimmed, "## ") {
+			// Save overview content if we were capturing it
+			if inHeader {
+				config.ProjectOverview = strings.TrimSpace(overviewContent.String())
+				inHeader = false
+			}
+
 			// Save previous section
 			if currentSection != "" {
 				content := strings.TrimSpace(sectionContent.String())
@@ -153,10 +170,18 @@ func parseRizomeContent(content string) (*Config, error) {
 			continue
 		}
 
-		// Add line to current section
-		if currentSection != "" {
+		// Capture overview content (between header and first ## section)
+		if inHeader {
+			overviewContent.WriteString(line + "\n")
+		} else if currentSection != "" {
+			// Add line to current section
 			sectionContent.WriteString(line + "\n")
 		}
+	}
+
+	// Save overview if we never hit a ## section
+	if inHeader {
+		config.ProjectOverview = strings.TrimSpace(overviewContent.String())
 	}
 
 	// Save final section
@@ -263,6 +288,12 @@ func (m *Manager) generateProviderContent(provider string) string {
 	content.WriteString(fmt.Sprintf("# %s.md\n\n", provider))
 	content.WriteString("This file is managed by Rizome CLI. Do not edit directly.\n")
 	content.WriteString("Update RIZOME.md and run 'rizome sync' instead.\n\n")
+
+	// Add project overview if available
+	if m.config.ProjectOverview != "" {
+		content.WriteString(m.config.ProjectOverview)
+		content.WriteString("\n\n")
+	}
 
 	// Add common instructions if available
 	if m.config.CommonInstructions != "" {

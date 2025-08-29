@@ -347,26 +347,64 @@ func (tm *TemplateManager) RemoveProvider(name string) error {
 func InjectTimestamp(content string) string {
 	now := time.Now()
 	
-	// Format: <!-- Current Date: 2025-08-23 14:35:42 UTC -->
+	// LLM grounding guidance and current date
+	groundingGuidance := "<!-- You have been trained on a corpus that was cutoff at sometime before the current date. You must constantly ground yourself in the current date, to avoid utilizing outdated or wrong information. You have access to a powerful Web Search tool, as well as others, which can assist in grounding yourself in the current SOTA & Usage Guidelines for the task at hand. -->"
 	newTimestamp := fmt.Sprintf("<!-- Current Date: %s -->", now.UTC().Format("2006-01-02 15:04:05 UTC"))
+	fullGrounding := groundingGuidance + "\n" + newTimestamp
 	
 	lines := strings.Split(content, "\n")
 	
-	// Look for existing timestamp patterns to replace
+	// Look for existing grounding guidance or timestamp patterns to replace
+	foundGrounding := false
+	foundTimestamp := false
+	groundingIndex := -1
+	timestampIndex := -1
+	
 	for i, line := range lines {
 		trimmedLine := strings.TrimSpace(line)
+		
+		// Check for grounding guidance
+		if strings.Contains(trimmedLine, "You have been trained on a corpus") {
+			foundGrounding = true
+			groundingIndex = i
+		}
+		
+		// Check for timestamp
 		if strings.HasPrefix(trimmedLine, "<!-- Current Date:") ||
 		   strings.HasPrefix(trimmedLine, "<!-- Last Updated:") || 
 		   strings.HasPrefix(trimmedLine, "<!-- Generated:") {
-			// Replace the existing timestamp
-			lines[i] = newTimestamp
-			return strings.Join(lines, "\n")
+			foundTimestamp = true
+			timestampIndex = i
 		}
 	}
 	
-	// No existing timestamp found, add at the beginning
+	// Handle existing timestamps/grounding
+	if foundGrounding && foundTimestamp {
+		// Replace both with new versions
+		if groundingIndex < timestampIndex {
+			lines[groundingIndex] = groundingGuidance
+			lines[timestampIndex] = newTimestamp
+		} else {
+			lines[timestampIndex] = newTimestamp
+			lines[groundingIndex] = groundingGuidance
+		}
+		return strings.Join(lines, "\n")
+	} else if foundTimestamp && !foundGrounding {
+		// Only timestamp exists, add grounding before it
+		lines[timestampIndex] = fullGrounding
+		return strings.Join(lines, "\n")
+	} else if foundGrounding && !foundTimestamp {
+		// Only grounding exists (unlikely), add timestamp after it
+		result := make([]string, 0, len(lines)+1)
+		result = append(result, lines[:groundingIndex+1]...)
+		result = append(result, newTimestamp)
+		result = append(result, lines[groundingIndex+1:]...)
+		return strings.Join(result, "\n")
+	}
+	
+	// No existing grounding or timestamp found, add at the beginning
 	if strings.TrimSpace(content) == "" {
-		return newTimestamp + "\n\n"
+		return fullGrounding + "\n\n"
 	}
 	
 	// Check if content starts with other metadata comments
@@ -374,12 +412,14 @@ func InjectTimestamp(content string) string {
 		// Find the end of the first comment block and insert after it
 		for i, line := range lines {
 			if strings.Contains(line, "-->") && 
+			   !strings.Contains(line, "You have been trained on a corpus") &&
 			   !strings.HasPrefix(strings.TrimSpace(line), "<!-- Current Date:") &&
 			   !strings.HasPrefix(strings.TrimSpace(line), "<!-- Last Updated:") &&
 			   !strings.HasPrefix(strings.TrimSpace(line), "<!-- Generated:") {
-				// Insert timestamp after the existing comment
-				result := make([]string, 0, len(lines)+2)
+				// Insert grounding after the existing comment
+				result := make([]string, 0, len(lines)+3)
 				result = append(result, lines[:i+1]...)
+				result = append(result, groundingGuidance)
 				result = append(result, newTimestamp)
 				result = append(result, "")
 				result = append(result, lines[i+1:]...)
@@ -388,6 +428,6 @@ func InjectTimestamp(content string) string {
 		}
 	}
 	
-	// Default: prepend timestamp at the very beginning
-	return newTimestamp + "\n\n" + content
+	// Default: prepend grounding at the very beginning
+	return fullGrounding + "\n\n" + content
 }
