@@ -39,7 +39,7 @@ func SyncCmd() *cobra.Command {
 		Use:   "sync",
 		Short: "Interactive provider configuration synchronization",
 		Long: `The sync command reads RIZOME.md from the current directory and synchronizes
-its content with provider-specific configuration files (CLAUDE.md, QWEN.md, 
+its content with provider-specific configuration files (CLAUDE.md, QWEN.md,
 CURSOR.md, GEMINI.md, WINDSURF.md).
 
 Interactive Mode (default):
@@ -51,14 +51,14 @@ Non-Interactive Mode:
 
 RIZOME.md format:
   # RIZOME.md
-  
+
   ## Common Instructions
   Instructions that apply to all AI providers
-  
+
   ## Provider Overrides
   ### CLAUDE
   Claude-specific instructions
-  
+
   ### QWEN
   Qwen-specific instructions
 
@@ -98,10 +98,13 @@ func runSyncInteractive(dryRun, force, nonInteractive bool, providersFlag string
 	config := syncManager.GetConfig()
 	availableProviders := config.Providers
 
-	var selectedProviders []string
+	var sourceFile string
+	var destinationFiles []string
 
 	if nonInteractive {
-		// Non-interactive mode
+		// Non-interactive mode - default to RIZOME.md as source
+		sourceFile = "RIZOME"
+
 		if providersFlag != "" {
 			// Use specified providers
 			specifiedProviders := strings.Split(providersFlag, ",")
@@ -124,36 +127,44 @@ func runSyncInteractive(dryRun, force, nonInteractive bool, providersFlag string
 				}
 			}
 
-			selectedProviders = specifiedProviders
+			destinationFiles = specifiedProviders
 		} else {
 			// Use enabled providers from registry as default
-			selectedProviders = sync.GetEnabledProviders()
+			destinationFiles = sync.GetEnabledProviders()
 		}
 	} else {
-		// Interactive mode - show provider selection
-		selected, err := selectProvidersForSync(availableProviders, config)
+		// Interactive mode - show FROM/TO selection
+		source, destinations, err := selectSyncFromTo(availableProviders, config)
 		if err != nil {
 			return err
 		}
-		selectedProviders = selected
+		sourceFile = source
+		destinationFiles = destinations
 	}
 
-	if len(selectedProviders) == 0 {
-		fmt.Printf("%s No providers selected for sync\n", infoStyle.Render("ℹ"))
+	if len(destinationFiles) == 0 {
+		fmt.Printf("%s No destination files selected for sync\n", infoStyle.Render("ℹ"))
 		return nil
 	}
 
 	fmt.Printf("%s Starting sync in %s\n", infoStyle.Render("ℹ"), cwd)
-	if len(selectedProviders) < len(availableProviders) {
-		fmt.Printf("  Providers: %s\n", strings.Join(selectedProviders, ", "))
-	}
+	fmt.Printf("  FROM: %s.md\n", sourceFile)
+	fmt.Printf("  TO: %s\n", strings.Join(append(destinationFiles, ".md"), ".md, ")[:len(strings.Join(append(destinationFiles, ".md"), ".md, "))-4])
 
 	if dryRun {
 		fmt.Printf("%s Running in dry-run mode\n", infoStyle.Render("ℹ"))
 	}
 
-	// Perform sync with selected providers
-	results, err := syncManager.SyncProviders(selectedProviders, dryRun, force)
+	// Perform sync based on source file
+	var results []sync.SyncResult
+	if sourceFile == "RIZOME" {
+		// Traditional sync from RIZOME.md
+		results, err = syncManager.SyncProviders(destinationFiles, dryRun, force)
+	} else {
+		// Sync from a provider file
+		results, err = syncManager.SyncFromProvider(sourceFile, destinationFiles, dryRun, force)
+	}
+
 	if err != nil {
 		return fmt.Errorf("%s %w", errorStyle.Render("✗"), err)
 	}
@@ -282,4 +293,105 @@ func getOverrideKeys(overrides map[string]string) []string {
 		keys = append(keys, key)
 	}
 	return keys
+}
+
+// selectSyncFromTo shows the two-step FROM/TO selection interface
+func selectSyncFromTo(availableProviders []string, syncConfig *sync.Config) (string, []string, error) {
+	// Step 1: Select source file (FROM)
+	var sourceOptions []tui.RadioOption
+
+	// Add RIZOME.md as first option (default selected)
+	sourceOptions = append(sourceOptions, tui.RadioOption{
+		Label:       "RIZOME",
+		Description: "Master configuration file (syncs to provider files)",
+		Value:       "RIZOME",
+	})
+
+	// Add provider files
+	for _, provider := range availableProviders {
+		description := fmt.Sprintf("%s.md provider configuration file", provider)
+
+		// Check if file exists
+		if _, err := os.Stat(fmt.Sprintf("%s.md", provider)); err == nil {
+			description += " (exists)"
+		} else {
+			description += " (not created yet)"
+		}
+
+		sourceOptions = append(sourceOptions, tui.RadioOption{
+			Label:       provider,
+			Description: description,
+			Value:       provider,
+		})
+	}
+
+	fmt.Printf("%s Select sync source and destination\n\n", infoStyle.Render("ℹ"))
+
+	sourceFile, err := tui.RadioSelection(
+		"Step 1/2: Select which file you'd like to sync FROM",
+		sourceOptions,
+		0, // Default to RIZOME.md
+	)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// Step 2: Select destination files (TO)
+	var destOptions []tui.CheckboxOption
+
+	// Add RIZOME.md if it's not the source
+	if sourceFile != "RIZOME" {
+		description := "Master configuration file"
+		if syncConfig.ProjectOverview != "" || syncConfig.CommonInstructions != "" {
+			description += " (will be updated)"
+		}
+
+		destOptions = append(destOptions, tui.CheckboxOption{
+			Label:       "RIZOME",
+			Description: description,
+			Value:       "RIZOME",
+			Checked:     true, // Default checked
+		})
+	}
+
+	// Add provider files (except the source)
+	for _, provider := range availableProviders {
+		if provider == sourceFile {
+			continue // Skip source file
+		}
+
+		description := fmt.Sprintf("%s.md provider configuration", provider)
+
+		// Check if file exists
+		if _, err := os.Stat(fmt.Sprintf("%s.md", provider)); err == nil {
+			description += " (will be updated)"
+		} else {
+			description += " (will be created)"
+		}
+
+		destOptions = append(destOptions, tui.CheckboxOption{
+			Label:       provider,
+			Description: description,
+			Value:       provider,
+			Checked:     true, // Default all checked
+		})
+	}
+
+	title := fmt.Sprintf("Step 2/2: Select which file you'd like to sync TO")
+	destinationFiles, err := tui.CheckboxSelection(title, destOptions)
+	if err != nil {
+		return "", nil, err
+	}
+
+	if len(destinationFiles) == 0 {
+		confirmed, err := tui.Confirm("No destination files selected. Continue without syncing?")
+		if err != nil {
+			return "", nil, err
+		}
+		if !confirmed {
+			return selectSyncFromTo(availableProviders, syncConfig) // Try again
+		}
+	}
+
+	return sourceFile, destinationFiles, nil
 }

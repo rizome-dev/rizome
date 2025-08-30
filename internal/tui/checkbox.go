@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // CheckboxOption represents a single checkbox option
@@ -38,6 +39,8 @@ type checkboxModel struct {
 	cursor    int
 	confirmed bool
 	cancelled bool
+	width     int
+	height    int
 }
 
 // NewCheckboxModel creates a new checkbox selection model
@@ -46,6 +49,8 @@ func NewCheckboxModel(title string, options []CheckboxOption) checkboxModel {
 		title:   title,
 		options: options,
 		cursor:  0,
+		width:   80, // Default width
+		height:  24, // Default height
 	}
 }
 
@@ -55,6 +60,10 @@ func (m checkboxModel) Init() tea.Cmd {
 
 func (m checkboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q", "esc":
@@ -75,7 +84,7 @@ func (m checkboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 
-		case " ":
+		case " ", "x":
 			// Toggle checkbox
 			if m.cursor >= 0 && m.cursor < len(m.options) {
 				m.options[m.cursor].Checked = !m.options[m.cursor].Checked
@@ -87,10 +96,16 @@ func (m checkboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.options[i].Checked = true
 			}
 
-		case "A":
-			// Deselect all
+		case "A", "n":
+			// Deselect all (n for none)
 			for i := range m.options {
 				m.options[i].Checked = false
+			}
+			
+		case "i":
+			// Invert selection
+			for i := range m.options {
+				m.options[i].Checked = !m.options[i].Checked
 			}
 		}
 	}
@@ -99,46 +114,135 @@ func (m checkboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m checkboxModel) View() string {
+	if m.confirmed || m.cancelled {
+		return ""
+	}
+	
 	var b strings.Builder
 
-	// Title
+	// Title with consistent styling
 	b.WriteString(TitleStyle.Render(m.title))
 	b.WriteString("\n\n")
 
-	// Options
-	for i, option := range m.options {
-		// Cursor indicator
-		cursor := " "
-		if m.cursor == i {
-			cursor = ">"
+	// Calculate how many items we can display
+	availableHeight := m.height - 8 // Reserve space for title, help, etc.
+	itemsToShow := len(m.options)
+	startIdx := 0
+	
+	// Implement scrolling if needed
+	if availableHeight < len(m.options)*2 { // Approximate 2 lines per item
+		itemsToShow = availableHeight / 2
+		// Center the cursor in the visible area
+		if m.cursor > itemsToShow/2 {
+			startIdx = m.cursor - itemsToShow/2
+			if startIdx+itemsToShow > len(m.options) {
+				startIdx = len(m.options) - itemsToShow
+			}
 		}
-
-		// Checkbox
-		checkbox := RenderCheckbox(option.Checked, option.Label)
-
-		// Style based on cursor position
-		if m.cursor == i {
-			line := fmt.Sprintf("%s %s", cursor, checkbox)
-			b.WriteString(SelectedItemStyle.Render(line))
-		} else {
-			line := fmt.Sprintf("%s %s", cursor, checkbox)
-			b.WriteString(ListItemStyle.Render(line))
-		}
-
-		// Description if available
-		if option.Description != "" {
-			b.WriteString("\n")
-			description := fmt.Sprintf("   %s", option.Description)
-			b.WriteString(DescriptionStyle.Render(description))
-		}
-
-		b.WriteString("\n")
 	}
 
-	// Instructions
+	// Render visible options
+	for i := startIdx; i < startIdx+itemsToShow && i < len(m.options); i++ {
+		option := m.options[i]
+		isFocused := m.cursor == i
+		
+		// Build the item line
+		var itemLine strings.Builder
+		
+		// Cursor indicator
+		if isFocused {
+			itemLine.WriteString(CursorStyle.Render(CursorArrow))
+			itemLine.WriteString(" ")
+		} else {
+			itemLine.WriteString("  ")
+		}
+		
+		// Checkbox and label
+		var checkboxIcon string
+		if option.Checked {
+			checkboxIcon = CheckboxFilled
+		} else {
+			checkboxIcon = CheckboxEmpty
+		}
+		
+		// Apply appropriate styling
+		var lineStyle lipgloss.Style
+		if isFocused {
+			if option.Checked {
+				lineStyle = CheckedStyle.Copy().Bold(true)
+			} else {
+				lineStyle = FocusedStyle
+			}
+		} else {
+			if option.Checked {
+				lineStyle = CheckedStyle
+			} else {
+				lineStyle = UnselectedStyle
+			}
+		}
+		
+		itemLine.WriteString(lineStyle.Render(fmt.Sprintf("%s %s", checkboxIcon, option.Label)))
+		
+		// Add status badge if checked
+		if option.Checked {
+			badge := BadgeSuccessStyle.Render("selected")
+			itemLine.WriteString(" ")
+			itemLine.WriteString(badge)
+		}
+		
+		b.WriteString(itemLine.String())
+		b.WriteString("\n")
+		
+		// Description on the next line if available and item is focused
+		if option.Description != "" && isFocused {
+			desc := DescriptionStyle.Copy().PaddingLeft(4).Render(option.Description)
+			
+			// Wrap description if too long
+			maxWidth := m.width - 6
+			if maxWidth > 0 && lipgloss.Width(desc) > maxWidth {
+				desc = DescriptionStyle.Copy().
+					PaddingLeft(4).
+					Width(maxWidth).
+					Render(option.Description)
+			}
+			
+			b.WriteString(desc)
+			b.WriteString("\n")
+		}
+	}
+	
+	// Show scroll indicators if needed
+	if startIdx > 0 || startIdx+itemsToShow < len(m.options) {
+		scrollInfo := MutedStyle.Render(fmt.Sprintf("\n[%d-%d of %d items]", 
+			startIdx+1, 
+			min(startIdx+itemsToShow, len(m.options)), 
+			len(m.options)))
+		b.WriteString(scrollInfo)
+	}
+
+	// Selected count summary
+	selectedCount := 0
+	for _, opt := range m.options {
+		if opt.Checked {
+			selectedCount++
+		}
+	}
+	
+	b.WriteString("\n\n")
+	summary := fmt.Sprintf("%d of %d selected", selectedCount, len(m.options))
+	b.WriteString(InfoStyle.Render(summary))
+
+	// Help text
 	b.WriteString("\n")
-	instructions := MutedStyle.Render("Space: toggle • a: select all • A: deselect all • Enter: confirm • q: quit")
-	b.WriteString(instructions)
+	helpText := RenderHelp(
+		"space: toggle",
+		"a: all",
+		"n: none", 
+		"i: invert",
+		"enter: confirm",
+		"q: cancel",
+	)
+	b.WriteString(helpText)
 
 	return b.String()
 }
@@ -154,32 +258,21 @@ func (m checkboxModel) GetSelectedValues() []string {
 	return selected
 }
 
-// IsConfirmed returns true if the user confirmed the selection
-func (m checkboxModel) IsConfirmed() bool {
-	return m.confirmed
-}
-
-// IsCancelled returns true if the user cancelled the selection
-func (m checkboxModel) IsCancelled() bool {
-	return m.cancelled
-}
-
-// CheckboxSelection runs a checkbox selection and returns the selected values
+// CheckboxSelection displays a checkbox selection interface and returns selected values
 func CheckboxSelection(title string, options []CheckboxOption) ([]string, error) {
-	model := NewCheckboxModel(title, options)
-	p := tea.NewProgram(model)
+	m := NewCheckboxModel(title, options)
 
-	result, err := p.Run()
+	p := tea.NewProgram(m)
+	finalModel, err := p.Run()
 	if err != nil {
 		return nil, err
 	}
 
-	if finalModel, ok := result.(checkboxModel); ok {
-		if finalModel.IsCancelled() {
-			return nil, fmt.Errorf("selection cancelled")
-		}
-		return finalModel.GetSelectedValues(), nil
+	final := finalModel.(checkboxModel)
+	if final.cancelled {
+		return nil, fmt.Errorf("selection cancelled")
 	}
 
-	return nil, fmt.Errorf("unexpected model type")
+	return final.GetSelectedValues(), nil
 }
+
