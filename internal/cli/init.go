@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/spf13/cobra"
@@ -160,10 +161,28 @@ func runInitInteractive(force bool, templateKey string) error {
 	}
 
 	fmt.Printf("\n%s RIZOME.md created successfully!\n", successStyle.Render("✅"))
+
+	// Ask about .claudedocs initialization
+	initClaudedocs, err := tui.Confirm("Would you like to initialize .claudedocs for project documentation?")
+	if err != nil {
+		// Don't fail the whole init if this errors, just skip it
+		fmt.Printf("%s Skipping .claudedocs initialization\n", infoStyle.Render("ℹ"))
+	} else if initClaudedocs {
+		if err := initializeClaudedocs(cwd); err != nil {
+			fmt.Printf("%s Failed to initialize .claudedocs: %v\n", errorStyle.Render("✗"), err)
+			fmt.Println("You can manually create the .claudedocs folder later")
+		} else {
+			fmt.Printf("%s .claudedocs initialized successfully!\n", successStyle.Render("✅"))
+		}
+	}
+
 	fmt.Printf("\n%s Next steps:\n", infoStyle.Render("ℹ"))
 	fmt.Printf("  1. Edit RIZOME.md with your project details\n")
 	fmt.Printf("  2. Run 'rizome sync' to generate provider-specific files\n")
 	fmt.Printf("  3. Use 'rizome tmpl' to manage templates\n")
+	if initClaudedocs {
+		fmt.Printf("  4. Update .claudedocs/IMPLEMENTATION_PLAN.md with your project plan\n")
+	}
 
 	return nil
 }
@@ -745,6 +764,104 @@ func removeProviderForInit(tm *config.TemplateManager) error {
 	}
 
 	fmt.Printf("%s Successfully removed provider '%s'.\n", successStyle.Render("✅"), providerItem.name)
+	return nil
+}
+
+// initializeClaudedocs creates the .claudedocs folder with IMPLEMENTATION_PLAN.md and IMPLEMENTATION_PROGRESS.md
+func initializeClaudedocs(projectPath string) error {
+	claudedocsPath := filepath.Join(projectPath, ".claudedocs")
+	
+	// Create .claudedocs directory
+	if err := os.MkdirAll(claudedocsPath, 0755); err != nil {
+		return fmt.Errorf("failed to create .claudedocs directory: %w", err)
+	}
+	
+	// Create IMPLEMENTATION_PLAN.md
+	implementationPlanPath := filepath.Join(claudedocsPath, "IMPLEMENTATION_PLAN.md")
+	implementationPlanContent := `# Implementation Plan
+
+## Project Overview
+<!-- Brief description of the project and its goals -->
+
+## Architecture
+<!-- High-level architecture and design decisions -->
+
+## Implementation Phases
+
+### Phase 1: Foundation
+<!-- Initial setup and core components -->
+- [ ] Task 1
+- [ ] Task 2
+- [ ] Task 3
+
+### Phase 2: Core Features
+<!-- Main functionality implementation -->
+- [ ] Task 1
+- [ ] Task 2
+- [ ] Task 3
+
+### Phase 3: Polish & Testing
+<!-- Testing, optimization, and final touches -->
+- [ ] Task 1
+- [ ] Task 2
+- [ ] Task 3
+
+## Technical Decisions
+<!-- Document key technical decisions and rationale -->
+
+## Dependencies
+<!-- List external dependencies and libraries -->
+
+## Testing Strategy
+<!-- Approach to testing the implementation -->
+
+## Documentation Requirements
+<!-- What documentation needs to be created -->
+
+## Success Criteria
+<!-- How to measure successful implementation -->
+`
+	
+	if err := os.WriteFile(implementationPlanPath, []byte(implementationPlanContent), 0644); err != nil {
+		return fmt.Errorf("failed to create IMPLEMENTATION_PLAN.md: %w", err)
+	}
+	
+	// Create IMPLEMENTATION_PROGRESS.md
+	implementationProgressPath := filepath.Join(claudedocsPath, "IMPLEMENTATION_PROGRESS.md")
+	implementationProgressContent := `# Implementation Progress
+
+## Current Status
+<!-- Overall project status and current phase -->
+**Phase:** Foundation
+**Status:** Not Started
+**Last Updated:** ` + time.Now().Format("2006-01-02") + `
+
+## Completed Tasks
+<!-- Track completed implementation tasks -->
+
+## In Progress
+<!-- Tasks currently being worked on -->
+
+## Blockers
+<!-- Any issues blocking progress -->
+
+## Next Steps
+<!-- Immediate next actions -->
+
+## Notes
+<!-- Additional notes and observations -->
+
+## Change Log
+<!-- Track major changes and decisions -->
+
+### ` + time.Now().Format("2006-01-02") + `
+- Project initialized with .claudedocs
+`
+	
+	if err := os.WriteFile(implementationProgressPath, []byte(implementationProgressContent), 0644); err != nil {
+		return fmt.Errorf("failed to create IMPLEMENTATION_PROGRESS.md: %w", err)
+	}
+	
 	return nil
 }
 

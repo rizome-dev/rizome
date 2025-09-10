@@ -127,7 +127,7 @@ func (m confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "y", "Y":
+		case "y", "Y", "enter":
 			m.answer = true
 			return m, tea.Quit
 		case "n", "N":
@@ -146,14 +146,14 @@ func (m confirmModel) View() string {
 		Bold(true).
 		Foreground(lipgloss.Color("205"))
 
-	// Style for the options
+	// Style for the options (showing Enter/Y as default)
 	optionStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240"))
 
 	return fmt.Sprintf(
 		"%s\n\n%s",
 		questionStyle.Render(m.question),
-		optionStyle.Render("(y/n)"),
+		optionStyle.Render("[Y/n] (Press Enter for Yes)"),
 	)
 }
 
